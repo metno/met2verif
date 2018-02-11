@@ -5,6 +5,9 @@ This package contains the program ``met2verif``, which can be used to generate v
 used by Verif [[https://github.com/WFRT/verif]]. It arranges observations from MET-Norways
 observation database and forecasts from NetCDF files.
 
+See the [[wiki|https://github.com/metno/met2verif/wiki]] page for instructions on how to use the
+program.
+
 Installing on Ubuntu
 --------------------
 
