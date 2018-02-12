@@ -7,6 +7,7 @@ import numpy as np
 import os
 import met2verif.obsinput
 import met2verif.fcstinput
+import met2verif.locinput
 
 
 def main():
@@ -58,32 +59,13 @@ def main():
 
    if args.command == "init":
       # Create lat/lon/elev map
-      slats = dict()
-      slons = dict()
-      selevs = dict()
-      locfile = open(args.locations_file, 'r')
-      for line in locfile:
-         if(line[0] is not '#'):
-            line = line.split(' ')
-            line = [i for i in line if i is not '']
-            id   = int(line[0])
-            slats[id] = -999
-            slons[id] = -999
-            selevs[id] = -999
-            for at in line:
-               at = at.split('=')
-               if(at[0] == "lat"):
-                  slats[id] = float(at[1])
-               elif(at[0] == "lon"):
-                  slons[id] = float(at[1])
-               elif(at[0] == "elev"):
-                  selevs[id] = float(at[1])
+      locations = locinput.get(args.locations_file).read()
 
       # Write file
       file = netCDF4.Dataset(ofilename, 'w', format="NETCDF3_CLASSIC")
       file.createDimension("time", None)
       file.createDimension("leadtime", len(args.leadtimes))
-      file.createDimension("location", len(slats))
+      file.createDimension("location", len(locations))
       vTime=file.createVariable("time", "i4", ("time",))
       vOffset=file.createVariable("leadtime", "f4", ("leadtime",))
       vLocation=file.createVariable("location", "i4", ("location",))
@@ -99,15 +81,15 @@ def main():
       if args.units:
          file.units = unit = args.units
 
-      L = len(slats)
+      L = len(locations)
       lats = np.zeros(L, 'float')
       lons = np.zeros(L, 'float')
       elevs = np.zeros(L, 'float')
-      ids = np.sort(slats.keys())
+      ids = np.sort(locations.keys())
       for i in range(0, L):
-         lats[i] = slats[ids[i]]
-         lons[i] = slons[ids[i]]
-         elevs[i] = selevs[ids[i]]
+         lats[i] = locations[ids[i]]["lat"]
+         lons[i] = locations[ids[i]]["lon"]
+         elevs[i] = locations[ids[i]]["elev"]
       vOffset[:] = args.leadtimes
       vLocation[:] = ids
       vLat[:] = lats
