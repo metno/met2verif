@@ -175,7 +175,12 @@ def main():
          curr_times = list()
          file.close()
       elif args.command == "addfcst":
-         inputs = [met2verif.fcstinput.get(filename) for filename in args.files]
+         inputs = list()
+         nn_tree_guess = None
+         for filename in args.files:
+            input = met2verif.fcstinput.get(filename, nn_tree_guess)
+            nn_tree_guess = input.nn_tree
+            inputs += [input]
 
          file_times = np.zeros(0)
          for input in inputs:
