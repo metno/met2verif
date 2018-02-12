@@ -18,7 +18,7 @@ def main():
    sp = dict()
    sp["init"] = subparsers.add_parser('init', help='Initialize verif file')
    sp["init"].add_argument('-l', help='Locations file', dest="locations_file", required=True)
-   sp["init"].add_argument('-lt', type=met2verif.util.parse_numbers, help='Lead times (hours)', dest="leadtimes")
+   sp["init"].add_argument('-lt', type=met2verif.util.parse_numbers, help='Lead times (hours)', dest="leadtimes", required=True)
    sp["init"].add_argument('-o', metavar="FILE", help='Verif file', dest="verif_file", required=True)
    sp["init"].add_argument('-s', help='Standard name', dest="standard_name")
    sp["init"].add_argument('-u', help='Units', dest="units")
@@ -27,8 +27,9 @@ def main():
    sp["addobs"] = subparsers.add_parser('addobs', help='Adds observations to verif file')
    sp["addobs"].add_argument('files', type=str, help='Observation files', nargs="+")
    sp["addobs"].add_argument('-c', help='Clear observations?', dest="clear", action="store_true")
-   sp["addobs"].add_argument('-i', type=met2verif.util.parse_numbers, default="0", help='Initialization hours', dest="inithours")
+   sp["addobs"].add_argument('-i', type=met2verif.util.parse_numbers, default=[0], help='Initialization hours', dest="inithours")
    sp["addobs"].add_argument('-o', metavar="FILE", help='Verif file', dest="verif_file", required=True)
+   sp["addobs"].add_argument('-s', help='Sort times if needed?', dest="sort", action="store_true")
    sp["addobs"].add_argument('-v', type=str, help='KDVH Variable', dest="variable", required=True)
    sp["addobs"].add_argument('--debug', help='Display debug information', action="store_true")
    sp["addobs"].add_argument('--force_range', type=str, default=None, help='Remove values outside the range [min,max]', dest="range")
@@ -38,6 +39,7 @@ def main():
    sp["addfcst"].add_argument('-c', help='Clear forecasts?', dest="clear", action="store_true")
    sp["addfcst"].add_argument('-o', metavar="FILE", help='Verif file', dest="verif_file", required=True)
    sp["addfcst"].add_argument('-r', default=[0], type=met2verif.util.parse_numbers, help='What hours after initialization should this be repeated for?', dest="repeats")
+   sp["addfcst"].add_argument('-s', help='Sort times if needed?', dest="sort", action="store_true")
    sp["addfcst"].add_argument('-v', type=str, help='variable name', dest="variable", required=True)
    sp["addfcst"].add_argument('--add', type=float, default=0, help='Add this value to all forecasts (--multiply is done before --add)')
    sp["addfcst"].add_argument('--multiply', type=float, default=1, help='Multiply all forecasts with this value')
@@ -143,6 +145,16 @@ def main():
          obs = np.nan * np.zeros([len(new_times), len(orig_leadtimes), len(orig_ids)])
          if len(orig_times) > 0 and not args.clear:
             obs[range(len(orig_times)), :, :] = file.variables["obs"][:]
+
+         if args.sort:
+            Itimes = np.argsort(new_times)
+            if (Itimes != range(len(new_times))).any():
+               if args.debug:
+                  print "Sorting times to be in ascending order"
+               new_times = new_times[Itimes]
+               obs = obs[Itimes, :, :]
+               file.variables["fcst"][:] = file.variables["fcst"][Itimes, :, :]
+
          file.variables["time"][:] = new_times
 
          for i, id in enumerate(new_ids):
@@ -181,6 +193,16 @@ def main():
          fcst = np.nan * np.zeros([len(new_times), len(orig_leadtimes), len(orig_ids)])
          if len(orig_times) > 0 and not args.clear:
             fcst[range(len(orig_times)), :, :] = file.variables["fcst"][:]
+
+         if args.sort:
+            Itimes = np.argsort(new_times)
+            if (Itimes != range(len(new_times))).any():
+               if args.debug:
+                  print "Sorting times to be in ascending order"
+               new_times = new_times[Itimes]
+               fcst = fcst[Itimes, :, :]
+               file.variables["obs"][:] = file.variables["obs"][Itimes, :, :]
+
          file.variables["time"][:] = new_times
          orig_lats = file.variables["lat"]
          orig_lons = file.variables["lon"]
@@ -194,8 +216,6 @@ def main():
                assert(len(Itime) == 1)
                Ilt_verif = [i for i in range(len(orig_leadtimes)) if orig_leadtimes[i] in new_leadtimes]
                Ilt_fcst = [np.where(lt == new_leadtimes)[0][0] for lt in orig_leadtimes[Ilt_verif]]
-               print r, delay, new_leadtimes, Itime
-               print Ilt_verif, Ilt_fcst
                fcst[Itime, Ilt_verif, :] = values[Ilt_fcst, :]
 
          file.variables["fcst"][:] = fcst * args.multiply + args.add
