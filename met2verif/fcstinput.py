@@ -90,8 +90,8 @@ class Netcdf(FcstInput):
          xx, yy = np.meshgrid(x, y)
          guess_coords = nn_tree_guess.data
          coords = np.zeros([len(self.lats.flatten()), 2])
-         coords[:, 0] = yy.flatten()
-         coords[:, 1] = xx.flatten()
+         coords[:, 0] = xx.flatten()
+         coords[:, 1] = yy.flatten()
          if guess_coords.shape == coords.shape and (guess_coords == coords).all():
             self.nn_tree = nn_tree_guess
          else:
@@ -116,8 +116,8 @@ class Netcdf(FcstInput):
                self.lons, self.lats = self.proj(xx, yy, inverse=True)
 
                coords = np.zeros([len(self.lats.flatten()), 2])
-               coords[:, 0] = yy.flatten()
-               coords[:, 1] = xx.flatten()
+               coords[:, 0] = xx.flatten()
+               coords[:, 1] = yy.flatten()
                self.nn_tree = scipy.spatial.KDTree(coords)
 
       # print "Initialization took %f seconds" % (time.time() - start)
