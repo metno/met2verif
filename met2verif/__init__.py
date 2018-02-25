@@ -39,6 +39,7 @@ def main():
    sp["addfcst"].add_argument('-c', help='Clear forecasts?', dest="clear", action="store_true")
    sp["addfcst"].add_argument('-o', metavar="FILE", help='Verif file', dest="verif_file", required=True)
    sp["addfcst"].add_argument('-r', default=[0], type=met2verif.util.parse_numbers, help='What hours after initialization should this be repeated for?', dest="repeats")
+   sp["addfcst"].add_argument('-f', help='Overwrite values if they are there already', dest="overwrite", action="store_true")
    sp["addfcst"].add_argument('-s', help='Sort times if needed?', dest="sort", action="store_true")
    sp["addfcst"].add_argument('-v', type=str, help='variable name', dest="variable", required=True)
    sp["addfcst"].add_argument('--add', type=float, default=0, help='Add this value to all forecasts (--multiply is done before --add)')
@@ -214,7 +215,8 @@ def main():
 
          for input in inputs:
             print "Processing %s" % input.filename
-            values = input.extract(orig_lats, orig_lons, args.variable)
+
+            values = None
             for r, delay in enumerate(args.repeats):
                frt = input.forecast_reference_time + delay * 3600
                new_leadtimes = input.leadtimes - delay
@@ -222,8 +224,14 @@ def main():
                assert(len(Itime) == 1)
                Ilt_verif = [i for i in range(len(orig_leadtimes)) if orig_leadtimes[i] in new_leadtimes]
                Ilt_fcst = [np.where(lt == new_leadtimes)[0][0] for lt in orig_leadtimes[Ilt_verif]]
-               fcst[Itime, Ilt_verif, :] = values[Ilt_fcst, :] * args.multiply + args.add
 
+               # Determine if we need to write data from this filename
+               do_write = args.overwrite or np.sum(np.isnan(fcst[Itime, Ilt_verif, :]) == 0) == 0
+               if do_write:
+                  if values is None:
+                     # Only load values once
+                     values = input.extract(orig_lats, orig_lons, args.variable)
+                  fcst[Itime, Ilt_verif, :] = values[Ilt_fcst, :] * args.multiply + args.add
 
          file.variables["fcst"][:] = fcst
 
