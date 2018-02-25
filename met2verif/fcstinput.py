@@ -64,6 +64,8 @@ class FcstInput(object):
 
 class Netcdf(FcstInput):
    def __init__(self, filename, nn_tree_guess=None):
+      import time
+      start = time.time()
       self.filename = filename
       self.file = netCDF4.Dataset(self.filename, 'r')
 
@@ -78,6 +80,7 @@ class Netcdf(FcstInput):
          abort()
 
       self.nn_tree = None
+      self.proj = None
       if nn_tree_guess is not None:
          print "Reusing tree"
          # TODO: Check if compatible
@@ -89,32 +92,39 @@ class Netcdf(FcstInput):
          coords = np.zeros([len(self.lats.flatten()), 2])
          coords[:, 0] = yy.flatten()
          coords[:, 1] = xx.flatten()
-         if (guess_coords == coords).all():
+         if guess_coords.shape == coords.shape and (guess_coords == coords).all():
             self.nn_tree = nn_tree_guess
          else:
             print "Cannot reuse tree: Missmatch in coordinates"
-
-      if self.nn_tree is None:
-         proj = None
-         self.nn_tree = None
          for v in self.file.variables:
             if hasattr(self.file.variables[v], "proj4"):
                projection = str(self.file.variables[v].proj4)
-               proj = pyproj.Proj(projection)
-               print "Reading projection information"
+               self.proj = pyproj.Proj(projection)
+
+      if self.nn_tree is None:
+         for v in self.file.variables:
+            if hasattr(self.file.variables[v], "proj4"):
+               projection = str(self.file.variables[v].proj4)
+               self.proj = pyproj.Proj(projection)
+               print "Creating KDTree"
                if "x" in self.file.variables:
                   x = self.file.variables["x"][:]
                   y = self.file.variables["y"][:]
                else:
-                  abort()
+                  continue
                xx, yy = np.meshgrid(x, y)
-               self.lons, self.lats = proj(xx, yy, inverse=True)
+               self.lons, self.lats = self.proj(xx, yy, inverse=True)
 
                coords = np.zeros([len(self.lats.flatten()), 2])
                coords[:, 0] = yy.flatten()
                coords[:, 1] = xx.flatten()
                self.nn_tree = scipy.spatial.KDTree(coords)
 
+      # print "Initialization took %f seconds" % (time.time() - start)
+
+   @property
+   def variables(self):
+      return self.file.variables.keys()
 
    @property
    def times(self):
@@ -122,7 +132,7 @@ class Netcdf(FcstInput):
 
    @property
    def forecast_reference_time(self):
-      return self.file["time"][0]
+      # return self.file["time"][0]
       # TODO
       return self.file.variables["forecast_reference_time"][:]
 
@@ -142,23 +152,32 @@ class Netcdf(FcstInput):
       if(len(data.shape) == 4):
          X = data.shape[2]
          Y = data.shape[3]
+         data = data[:, 0, :, :]
+         print "Taking member 0"
       elif(len(data.shape) == 3):
          X = data.shape[1]
          Y = data.shape[2]
       elif(len(data.shape) == 5):
          X = data.shape[3]
          Y = data.shape[4]
-         data = np.mean(data, axis=2)
-         print "Taking the ensemble mean, since 5D array"
+         data = data[:, 0, 0, :, :]
+         #data = np.mean(data, axis=2)
+         print "Taking member 0"
+         #print "Taking the ensemble mean, since 5D array"
       else:
          met2verif.util.error("Input data has strange dimensions")
       q = data.flat
       I, J = self.get_i_j(lats, lons)
-      values = np.zeros([len(self.leadtimes), len(lats)])
+      values = np.nan * np.zeros([len(self.leadtimes), len(lats)])
       for i in range(len(self.leadtimes)):
-         indices = np.array(i * X*Y + I*Y + J, 'int')
+         Ivalid = np.where((I != 0) & (J != 0) & (I != self.lats.shape[0] - 1) & (J != self.lats.shape[1] - 1))[0]
+         for k in range(len(I)):
+            if k not in Ivalid:
+               pass
+               # print "Removing stations %d. Outside domain." % k
+         indices = np.array(i * X*Y + I[Ivalid]*Y + J[Ivalid], 'int')
          temp = q[indices]
-         values[i, :] = temp
+         values[i, Ivalid] = temp
 
       return values
 
@@ -166,15 +185,18 @@ class Netcdf(FcstInput):
       N = len(lats)
       I = list()
       J = list()
-      if self.nn_tree is not None:
+      if self.nn_tree is not None and self.proj is not None:
+         # Project lat lon onto grid projection
+         xx, yy = self.proj(lons, lats)
          for i in range(N):
-            currlat = lats[i]
-            currlon = lons[i]
-            dist, index = self.nn_tree.query([currlat, currlon])
+            x = xx[i]
+            y = yy[i]
+            dist, index = self.nn_tree.query([x, y])
             indices = np.unravel_index(index, self.lats.shape)
             I += [indices[0]]
             J += [indices[1]]
       else:
+         print "Could not find tree"
          coords = np.zeros([len(self.lats.flatten()), 2])
          # return np.array([1]*N, int), np.array([1]*N, int)
          coords[:, 0] = self.lats.flatten()
