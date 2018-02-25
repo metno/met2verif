@@ -209,10 +209,11 @@ def main():
                file.variables["obs"][:] = file.variables["obs"][Itimes, :, :]
 
          file.variables["time"][:] = new_times
-         orig_lats = file.variables["lat"]
-         orig_lons = file.variables["lon"]
+         orig_lats = file.variables["lat"][:]
+         orig_lons = file.variables["lon"][:]
 
          for input in inputs:
+            print "Processing %s" % input.filename
             values = input.extract(orig_lats, orig_lons, args.variable)
             for r, delay in enumerate(args.repeats):
                frt = input.forecast_reference_time + delay * 3600
@@ -221,10 +222,10 @@ def main():
                assert(len(Itime) == 1)
                Ilt_verif = [i for i in range(len(orig_leadtimes)) if orig_leadtimes[i] in new_leadtimes]
                Ilt_fcst = [np.where(lt == new_leadtimes)[0][0] for lt in orig_leadtimes[Ilt_verif]]
-               fcst[Itime, Ilt_verif, :] = values[Ilt_fcst, :]
+               fcst[Itime, Ilt_verif, :] = values[Ilt_fcst, :] * args.multiply + args.add
 
-         file.variables["fcst"][:] = fcst * args.multiply + args.add
-         file.close()
+
+         file.variables["fcst"][:] = fcst
 
 
 if __name__ == '__main__':
