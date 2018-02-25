@@ -43,6 +43,8 @@ class Kdvh(LocInput):
       for line in locfile:
          if len(line) <= 1:
             continue
+         if line[0] == "#":
+            continue
          line = line.strip().split(';')
          if '-' in [line[col] for col in [Iid, Ilat, Ilon, Ielev]]:
             continue
