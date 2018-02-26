@@ -28,21 +28,22 @@ def add_subparser(parser):
 def run(parser):
    args = parser.parse_args()
 
-   ofilename = args.verif_file
-
    if not os.path.exists(args.verif_file):
       met2verif.util.error("File '%s' does not exist" % args.verif_file)
 
    file = netCDF4.Dataset(args.verif_file, 'a')
    times = file.variables["time"]
    if len(times) == 0:
-      orig_times = []
+      times_orig = []
    else:
-      orig_times = times[:]
+      times_orig = times[:]
 
-   orig_ids = np.array(file.variables["location"][:])
-   orig_leadtimes = np.array(file.variables["leadtime"][:])
+   ids_orig = np.array(file.variables["location"][:])
+   leadtimes_orig = np.array(file.variables["leadtime"][:])
 
+   """
+   Create a dictionary where new observations from the files are added
+   """
    data = {"times": np.zeros(0, int), "ids": np.zeros(0, int), "obs": np.zeros(0)}
    for filename in args.files:
       input = met2verif.obsinput.get(filename)
@@ -50,44 +51,51 @@ def run(parser):
       for key in data:
          data[key] = np.append(data[key], curr_data[key])
 
+   """
+   Read the existing observation data and expand array to allow for the new times
+   to be added. This array can be resorted such that times are in chronological order.
+   """
    file_valid_times = np.unique(data["times"]).tolist()
    file_avail_init_times = list()
-   for orig_leadtime in orig_leadtimes:
-      file_avail_init_times += [(t - orig_leadtime * 3600) for t in file_valid_times]
-   file_times = [t for t in file_avail_init_times if (t % 86400)/3600 in args.inithours]
-   all_times = np.unique(np.append(orig_times, file_times))
-   add_times = np.sort(np.setdiff1d(all_times, orig_times))
-   new_times = np.append(orig_times, add_times)
+   for leadtime_orig in leadtimes_orig:
+      file_avail_init_times += [(t - leadtime_orig * 3600) for t in file_valid_times]
+   times_file = [t for t in file_avail_init_times if (t % 86400)/3600 in args.inithours]
+   times_all = np.unique(np.append(times_orig, times_file))
+   times_add = np.sort(np.setdiff1d(times_all, times_orig))
+   times_new = np.append(times_orig, times_add)
    if args.debug:
-      if len(add_times) == 0:
+      if len(times_add) == 0:
          print "No new initialization times added"
       else:
-         print "Adding new intialization times:\n   " + '\n   '.join([met2verif.util.unixtime_to_str(t) for t in add_times])
+         print "Adding new intialization times:\n   " + '\n   '.join([met2verif.util.unixtime_to_str(t) for t in times_add])
 
-   new_ids = [id for id in np.unique(data["ids"]) if id in orig_ids]
-   valid_times = np.zeros([len(new_times), len(orig_leadtimes)], int)
-   for t in range(len(new_times)):
-      for l in range(len(orig_leadtimes)):
-         valid_times[t, l] = new_times[t] + orig_leadtimes[l] * 3600
+   new_ids = [id for id in np.unique(data["ids"]) if id in ids_orig]
+   valid_times = np.zeros([len(times_new), len(leadtimes_orig)], int)
+   for t in range(len(times_new)):
+      for l in range(len(leadtimes_orig)):
+         valid_times[t, l] = times_new[t] + leadtimes_orig[l] * 3600
 
-   obs = np.nan * np.zeros([len(new_times), len(orig_leadtimes), len(orig_ids)])
-   if len(orig_times) > 0 and not args.clear:
-      obs[range(len(orig_times)), :, :] = file.variables["obs"][:]
+   obs = np.nan * np.zeros([len(times_new), len(leadtimes_orig), len(ids_orig)])
+   if len(times_orig) > 0 and not args.clear:
+      obs[range(len(times_orig)), :, :] = file.variables["obs"][:]
 
    if args.sort:
-      Itimes = np.argsort(new_times)
-      if (Itimes != range(len(new_times))).any():
+      Itimes = np.argsort(times_new)
+      if (Itimes != range(len(times_new))).any():
          if args.debug:
             print "Sorting times to be in ascending order"
-         new_times = new_times[Itimes]
+         times_new = times_new[Itimes]
          obs = obs[Itimes, :, :]
          file.variables["fcst"][:] = file.variables["fcst"][Itimes, :, :]
 
-   file.variables["time"][:] = new_times
+   file.variables["time"][:] = times_new
 
+   """
+   Place each new observation into the appropriate time and leadtime slots
+   """
    for i, id in enumerate(new_ids):
       I = np.where(data["ids"] == id)[0]
-      Iloc = np.where(orig_ids == id)[0][0]
+      Iloc = np.where(ids_orig == id)[0][0]
       curr_valid_times = data["times"][I]
       curr_obs = data["obs"][I]
       for j in range(len(curr_obs)):

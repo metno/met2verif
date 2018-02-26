@@ -556,7 +556,8 @@ def unixtime_to_str(unixtime):
    hour = unixtime % 86400 / 3600
    min = unixtime % 3600 / 60
    sec = unixtime % 60
-   return "%08d %02d:%02d:%02d" % (date, hour, min , sec)
+   return "%08d %02d:%02d:%02d" % (date, hour, min, sec)
+
 
 def proj4_string_to_dict(string):
    """ Parse a proj4 string and create a dictionary

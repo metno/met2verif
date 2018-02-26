@@ -22,7 +22,6 @@ class LocInput(object):
    def __init__(self, filename):
       self.filename = filename
 
-
    def read(self, filename):
       raise NotImplementedError
 
@@ -50,7 +49,7 @@ class Kdvh(LocInput):
             continue
          if '' in [line[col] for col in [Iid, Ilat, Ilon, Ielev]]:
             continue
-         id   = int(line[Iid])
+         id = int(line[Iid])
          lat = float(line[Ilat])
          lon = float(line[Ilon])
          elev = float(line[Ielev])
@@ -69,7 +68,7 @@ class Comps(LocInput):
          if(line[0] is not '#'):
             line = line.split(' ')
             line = [i for i in line if i is not '']
-            id   = int(line[0])
+            id = int(line[0])
             lat = -999
             lon = -999
             elev = -999

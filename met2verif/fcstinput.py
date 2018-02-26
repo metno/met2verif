@@ -17,17 +17,16 @@ import pyproj
 def get(filename, nn_tree_guess):
    return Netcdf(filename, nn_tree_guess)
 
-"""
 
-   Arguments:
-      data: N-D array of data
-      ml: Prefer this model level, if there are several levels
-
-   Returns:
-      np.array: 3D array: Time X, Y
-
-"""
 def get_field(data, ml=0, member=None):
+   """
+      Arguments:
+         data: N-D array of data
+         ml: Prefer this model level, if there are several levels
+
+      Returns:
+         np.array: 3D array: Time X, Y
+   """
    if(len(data.shape) == 4):
       # Extract the right model level, if multiple levels
       use_ml = 0
@@ -46,6 +45,7 @@ def get_field(data, ml=0, member=None):
    else:
       met2verif.util.error("Input data has strange dimensions")
    return data
+
 
 class FcstInput(object):
    def read(self, variable):
@@ -161,9 +161,9 @@ class Netcdf(FcstInput):
          X = data.shape[3]
          Y = data.shape[4]
          data = data[:, 0, 0, :, :]
-         #data = np.mean(data, axis=2)
          print "Taking member 0"
-         #print "Taking the ensemble mean, since 5D array"
+         # data = np.mean(data, axis=2)
+         # print "Taking the ensemble mean, since 5D array"
       else:
          met2verif.util.error("Input data has strange dimensions")
       q = data.flat

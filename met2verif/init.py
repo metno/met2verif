@@ -23,6 +23,7 @@ def add_subparser(parser):
 
    return subparser
 
+
 def run(parser):
    args = parser.parse_args()
 
@@ -36,14 +37,14 @@ def run(parser):
    file.createDimension("time", None)
    file.createDimension("leadtime", len(args.leadtimes))
    file.createDimension("location", len(locations))
-   vTime=file.createVariable("time", "i4", ("time",))
-   vOffset=file.createVariable("leadtime", "f4", ("leadtime",))
-   vLocation=file.createVariable("location", "i4", ("location",))
-   vLat=file.createVariable("lat", "f4", ("location",))
-   vLon=file.createVariable("lon", "f4", ("location",))
-   vElev=file.createVariable("altitude", "f4", ("location",))
-   vfcst=file.createVariable("fcst", "f4", ("time", "leadtime", "location"))
-   vobs=file.createVariable("obs", "f4", ("time", "leadtime", "location"))
+   vTime = file.createVariable("time", "i4", ("time",))
+   vOffset = file.createVariable("leadtime", "f4", ("leadtime",))
+   vLocation = file.createVariable("location", "i4", ("location",))
+   vLat = file.createVariable("lat", "f4", ("location",))
+   vLon = file.createVariable("lon", "f4", ("location",))
+   vElev = file.createVariable("altitude", "f4", ("location",))
+   vfcst = file.createVariable("fcst", "f4", ("time", "leadtime", "location"))
+   vobs = file.createVariable("obs", "f4", ("time", "leadtime", "location"))
    if args.standard_name:
       file.standard_name = args.standard_name
    else:

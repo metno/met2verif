@@ -23,6 +23,8 @@ def main():
    sp["addobs"] = met2verif.addobs.add_subparser(subparsers)
    sp["addfcst"] = met2verif.addfcst.add_subparser(subparsers)
 
+   args = parser.parse_args()
+
    if len(sys.argv) == 1:
       parser.print_help()
       sys.exit(1)
@@ -34,9 +36,9 @@ def main():
       return
 
    if args.command == "init":
-         met2verif.init.run(parser)
+      met2verif.init.run(parser)
    elif args.command == "addobs":
-         met2verif.addobs.run(parser)
+      met2verif.addobs.run(parser)
    elif args.command == "addfcst":
       met2verif.addfcst.run(parser)
 
