@@ -106,6 +106,8 @@ def run(parser):
          #    file.variables["obs"][II[0][k], II[1][k], Iloc] = curr_obs[j]
          if len(II[0]) > 0:
             obs[II[0], II[1], [Iloc]*len(II[0])] = curr_obs[j]
+
+   obs[np.isnan(obs)] = netCDF4.default_fillvals['f4']
    file.variables["obs"][:] = obs
 
    curr_times = list()

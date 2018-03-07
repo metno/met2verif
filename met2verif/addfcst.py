@@ -74,6 +74,8 @@ def run(parser):
    fcst = np.nan * np.zeros([len(times_new), len(leadtimes_orig), len(ids_orig)])
    if len(times_orig) > 0 and not args.clear:
       fcst[range(len(times_orig)), :, :] = file.variables["fcst"][:]
+      # Convert fill values to nan
+      fcst[fcst == netCDF4.default_fillvals['f4']] = np.nan
 
    if args.sort:
       Itimes = np.argsort(times_new)
@@ -110,4 +112,6 @@ def run(parser):
          elif args.debug:
             print "We do not need to read this file"
 
+   # Convert nans back to fill value
+   fcst[np.isnan(fcst)] = netCDF4.default_fillvals['f4']
    file.variables["fcst"][:] = fcst
