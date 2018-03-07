@@ -3,7 +3,20 @@ import numpy as np
 
 
 def get(filename):
-   return Kdvh(filename)
+   file = open(filename, 'r')
+   header = file.readline()
+   file.close()
+   if len(header) > 5:
+      if header[0:5] == " Stnr":
+         return Kdvh(filename)
+      else:
+         words = header.split(';')
+         if "lat" in words:
+            return Titan(filename)
+         else:
+            raise NotImplementedError
+   else:
+      raise NotImplementedError
 
 
 class ObsInput(object):
@@ -13,28 +26,28 @@ class ObsInput(object):
          variable (str): Variable to load
 
       Returns:
-         times (np.array): 
-         lats (np.array): 
-         lons (np.array): 
-         obs (np.array): 
+         times (np.array):
+         lats (np.array):
+         lons (np.array):
+         obs (np.array):
       """
       raise NotImplementedError
 
 
 class Kdvh(ObsInput):
-   def __init__(self, filename, locations_file = None):
+   def __init__(self, filename, locations_file=None):
       self.filename = filename
 
    def read(self, variable):
       ifile = open(self.filename, 'r')
       header = ifile.readline().replace('\n', '').split(' ')
       header = [i for i in header if i is not '']
-      Iid   = header.index("Stnr")
+      Iid = header.index("Stnr")
       Iyear = header.index("Year")
       Imonth = header.index("Month")
       Iday = header.index("Day")
       Itime = header.index("Time(UTC)")
-      Imin = None # header.index("MIN")
+      Imin = header.index("MIN") if "MIN" in header else None
       Ivar = header.index(variable)
       if None in [Iid, Iyear, Imonth, Iday, Itime, Ivar]:
          print "The header in %s is invalid:" % ifilename
@@ -45,13 +58,13 @@ class Kdvh(ObsInput):
       obs = list()
       ids = list()
 
-      date2unixtime_map = dict() # Lookup table for converting date to unixtime
+      date2unixtime_map = dict()  # Lookup table for converting date to unixtime
       for line in ifile:
          data = line.strip().split(' ')
          data = [i for i in data if i is not '']
          if len(data) > 1 and met2verif.util.is_number(data[0]):
             try:
-               id   = int(data[Iid])
+               id = int(data[Iid])
                date = int(data[Iyear])*10000 + int(data[Imonth])*100 + int(data[Iday])
                time = int(data[Itime])
             except Exception:
@@ -81,3 +94,25 @@ class Kdvh(ObsInput):
 
       data = {"times": np.array(times, int), "ids": np.array(ids, int), "obs": np.array(obs)}
       return data
+
+
+class Titan(ObsInput):
+   def __init__(self, filename):
+      self.filename = filename
+
+   def read(self, variable):
+      ifile = open(self.filename, 'r')
+      header = ifile.readline().replace('\n', '').split(' ')
+      header = [i for i in header if i is not '']
+      Ilat = header.index("lat")
+      Ilon = header.index("lon")
+      Ielev = header.index("elev")
+      Ivar = header.index("value")
+      if None in [Ilat, Ilon, Ielev, Ivar]:
+         print "The header in %s is invalid:" % ifilename
+         print header
+         ifile.close()
+         return {}
+      times = list()
+      obs = list()
+      ids = list()
