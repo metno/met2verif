@@ -140,30 +140,33 @@ class Netcdf(FcstInput):
    def leadtimes(self):
       return (self.times - self.forecast_reference_time) / 3600
 
-   def extract(self, lats, lons, variable):
+   def extract(self, lats, lons, variable, members=[0]):
       """
       Arguments:
          lats (np.array): Array of latitudes
          lons (np.array): Array of longitudes
          variable (str): Variable name
+         members (list): Which ensemble members to use? If None, then use all
       """
       data = self.file.variables[variable]
       data = data[:].astype(float)
       if(len(data.shape) == 4):
          X = data.shape[2]
          Y = data.shape[3]
-         data = data[:, 0, :, :]
-         print "Taking member 0"
+         if members is None:
+            data = np.nanmean(data, axis=1)
+         else:
+            data = np.nanmean(data[:, members, :, :], axis=1)
       elif(len(data.shape) == 3):
          X = data.shape[1]
          Y = data.shape[2]
       elif(len(data.shape) == 5):
          X = data.shape[3]
          Y = data.shape[4]
-         data = data[:, 0, 0, :, :]
-         print "Taking member 0"
-         # data = np.mean(data, axis=2)
-         # print "Taking the ensemble mean, since 5D array"
+         if members is None:
+            data = np.nanmean(data[:, 0, :, :, :], axis=1)
+         else:
+            data = np.nanmean(data[:, 0, members, :, :], axis=1)
       else:
          met2verif.util.error("Input data has strange dimensions")
       q = data.flat

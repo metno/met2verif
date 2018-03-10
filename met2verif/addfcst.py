@@ -1,13 +1,14 @@
-import sys
 import argparse
-import met2verif.util
-import met2verif.version
+import copy
 import netCDF4
 import numpy as np
 import os
-import met2verif.obsinput
+import sys
 import met2verif.fcstinput
 import met2verif.locinput
+import met2verif.obsinput
+import met2verif.util
+import met2verif.version
 
 
 def add_subparser(parser):
@@ -16,6 +17,7 @@ def add_subparser(parser):
    subparser.add_argument('-c', help='Clear forecasts?', dest="clear", action="store_true")
    subparser.add_argument('-o', metavar="FILE", help='Verif file', dest="verif_file", required=True)
    subparser.add_argument('-r', default=[0], type=met2verif.util.parse_numbers, help='What hours after initialization should this be repeated for?', dest="repeats")
+   subparser.add_argument('-e', type=met2verif.util.parse_numbers, help='What ensemble member(s) to use? If unspecified, then take the ensemble mean.', dest="members")
    subparser.add_argument('-f', help='Overwrite values if they are there already', dest="overwrite", action="store_true")
    subparser.add_argument('-s', help='Sort times if needed?', dest="sort", action="store_true")
    subparser.add_argument('-v', type=str, help='variable name', dest="variable", required=True)
@@ -49,7 +51,7 @@ def run(parser):
    nn_tree_guess = None
    for filename in args.files:
       input = met2verif.fcstinput.get(filename, nn_tree_guess)
-      nn_tree_guess = input.nn_tree
+      nn_tree_guess = copy.deepcopy(input.nn_tree)
       inputs += [input]
 
    """
@@ -93,7 +95,7 @@ def run(parser):
    for input in inputs:
       print "Processing %s" % input.filename
 
-      values = None
+      curr_fcst = None
       for r, delay in enumerate(args.repeats):
          frt = input.forecast_reference_time + delay * 3600
          leadtimes_new = input.leadtimes - delay
@@ -105,10 +107,11 @@ def run(parser):
          # Determine if we need to write data from this filename
          do_write = args.overwrite or np.sum(np.isnan(fcst[Itime, Ilt_verif, :]) == 0) == 0
          if do_write:
-            if values is None:
+            if curr_fcst is None:
                # Only load values once
-               values = input.extract(lats_orig, lons_orig, args.variable)
-            fcst[Itime, Ilt_verif, :] = values[Ilt_fcst, :] * args.multiply + args.add
+               curr_fcst = input.extract(lats_orig, lons_orig, args.variable, args.members)
+
+            fcst[Itime, Ilt_verif, :] = curr_fcst[Ilt_fcst, :] * args.multiply + args.add
          elif args.debug:
             print "We do not need to read this file"
 
