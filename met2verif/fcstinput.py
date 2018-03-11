@@ -84,8 +84,8 @@ class Netcdf(FcstInput):
    @property
    def forecast_reference_time(self):
       # return self.file["time"][0]
-      # TODO
-      return self.file.variables["forecast_reference_time"][:]
+      frt = np.ma.filled(self.file.variables["forecast_reference_time"][:], fill_value=np.nan)
+      return frt
 
    @property
    def leadtimes(self):

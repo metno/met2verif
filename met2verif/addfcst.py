@@ -60,7 +60,8 @@ def run(parser):
    for input in inputs:
       for delay in args.repeats:
          frt = input.forecast_reference_time + delay * 3600
-         times_file = np.append(times_file, frt)
+         if not np.isnan(frt):
+            times_file = np.append(times_file, frt)
    times_all = np.unique(np.append(times_orig, times_file))
    times_add = np.sort(np.setdiff1d(times_all, times_orig))
    times_new = np.append(times_orig, times_add)
@@ -91,26 +92,30 @@ def run(parser):
 
    for input in inputs:
       print "Processing %s" % input.filename
+      try:
+         leadtimes = input.leadtimes
 
-      curr_fcst = None
-      for r, delay in enumerate(args.repeats):
-         frt = input.forecast_reference_time + delay * 3600
-         leadtimes_new = input.leadtimes - delay
-         Itime = np.where(times_new == frt)[0]
-         assert(len(Itime) == 1)
-         Ilt_verif = [i for i in range(len(leadtimes_orig)) if leadtimes_orig[i] in leadtimes_new]
-         Ilt_fcst = [np.where(lt == leadtimes_new)[0][0] for lt in leadtimes_orig[Ilt_verif]]
+         curr_fcst = None
+         for r, delay in enumerate(args.repeats):
+            frt = input.forecast_reference_time + delay * 3600
+            leadtimes_new = leadtimes - delay
+            Itime = np.where(times_new == frt)[0]
+            assert(len(Itime) == 1)
+            Ilt_verif = [i for i in range(len(leadtimes_orig)) if leadtimes_orig[i] in leadtimes_new]
+            Ilt_fcst = [np.where(lt == leadtimes_new)[0][0] for lt in leadtimes_orig[Ilt_verif]]
 
-         # Determine if we need to write data from this filename
-         do_write = args.overwrite or np.sum(np.isnan(fcst[Itime, Ilt_verif, :]) == 0) == 0
-         if do_write:
-            if curr_fcst is None:
-               # Only load values once
-               curr_fcst = input.extract(lats_orig, lons_orig, args.variable, args.members)
+            # Determine if we need to write data from this filename
+            do_write = args.overwrite or np.sum(np.isnan(fcst[Itime, Ilt_verif, :]) == 0) == 0
+            if do_write:
+               if curr_fcst is None:
+                  # Only load values once
+                  curr_fcst = input.extract(lats_orig, lons_orig, args.variable, args.members)
 
-            fcst[Itime, Ilt_verif, :] = curr_fcst[Ilt_fcst, :] * args.multiply + args.add
-         elif args.debug:
-            print "We do not need to read this file"
+               fcst[Itime, Ilt_verif, :] = curr_fcst[Ilt_fcst, :] * args.multiply + args.add
+            elif args.debug:
+               print "We do not need to read this file"
+      except Exception as e:
+         print "Could not process"
 
    # Convert nans back to fill value
    fcst[np.isnan(fcst)] = netCDF4.default_fillvals['f4']
