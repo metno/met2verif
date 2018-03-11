@@ -91,13 +91,16 @@ class Netcdf(FcstInput):
    def leadtimes(self):
       return (self.times - self.forecast_reference_time) / 3600
 
-   def extract(self, lats, lons, variable, members=[0]):
+   def extract(self, lats, lons, variable, members=[0], aggregator=np.nanmean):
       """
+      Extract forecasts from file for points.
+
       Arguments:
          lats (np.array): Array of latitudes
          lons (np.array): Array of longitudes
          variable (str): Variable name
          members (list): Which ensemble members to use? If None, then use all
+         aggregator (function): What function to use to aggregate ensemble?
       """
       values = np.nan * np.zeros([len(self.leadtimes), len(lats)])
       s_time = time.time()
@@ -110,7 +113,7 @@ class Netcdf(FcstInput):
          elif len(members) == 1:
             data = data[:, members[0], :, :]
          else:
-            data = np.nanmean(data[:, members, :, :], axis=1)
+            data = aggregator(data[:, members, :, :], axis=1)
       elif(len(data.shape) == 3):
          X = data.shape[1]
          Y = data.shape[2]
@@ -118,11 +121,11 @@ class Netcdf(FcstInput):
          X = data.shape[3]
          Y = data.shape[4]
          if members is None:
-            data = np.nanmean(data[:, 0, :, :, :], axis=1)
+            data = aggregator(data[:, 0, :, :, :], axis=1)
          elif len(members) == 1:
             data = data[:, 0, members[0], :, :]
          else:
-            data = np.nanmean(data[:, 0, members, :, :], axis=1)
+            data = aggregator(data[:, 0, members, :, :], axis=1)
       else:
          met2verif.util.error("Input data has strange dimensions")
       q = data.flat
@@ -183,7 +186,6 @@ class Netcdf(FcstInput):
             I (list): I indices, -1 if outside domain
             J (list): J indices, -1 if outside domain
       """
-      # Ivalid = np.where((I != 0) & (J != 0) & (I != lats.shape[0] - 1) & (J != lats.shape[1] - 1))[0]
       proj = None
       x = self.file.variables["x"][:]
       y = self.file.variables["y"][:]
