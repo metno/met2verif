@@ -14,8 +14,8 @@ import scipy.spatial
 import pyproj
 
 
-def get(filename, nn_tree_guess):
-   return Netcdf(filename, nn_tree_guess)
+def get(filename):
+   return Netcdf(filename)
 
 
 def get_field(data, ml=0, member=None):
@@ -63,64 +63,15 @@ class FcstInput(object):
 
 
 class Netcdf(FcstInput):
-   def __init__(self, filename, nn_tree_guess=None):
+   def __init__(self, filename, coord_gues=None):
       import time
       start = time.time()
       self.filename = filename
-      self.file = netCDF4.Dataset(self.filename, 'r')
-
-      # Find lat and lons
-      if "latitude" in self.file.variables:
-         self.lats = self.file.variables["latitude"][:]
-         self.lons = self.file.variables["longitude"][:]
-      elif "lat" in self.file.variables:
-         self.lats = self.file.variables["lat"][:]
-         self.lons = self.file.variables["lon"][:]
-      else:
-         abort()
-
-      self.nn_tree = None
-      self.proj = None
-      if nn_tree_guess is not None:
-         print "Reusing tree"
-         # TODO: Check if compatible
-         if "x" in self.file.variables:
-            x = self.file.variables["x"][:]
-            y = self.file.variables["y"][:]
-         xx, yy = np.meshgrid(x, y)
-         guess_coords = nn_tree_guess.data
-         coords = np.zeros([len(self.lats.flatten()), 2])
-         coords[:, 0] = xx.flatten()
-         coords[:, 1] = yy.flatten()
-         if guess_coords.shape == coords.shape and (guess_coords == coords).all():
-            self.nn_tree = nn_tree_guess
-         else:
-            print "Cannot reuse tree: Missmatch in coordinates"
-         for v in self.file.variables:
-            if hasattr(self.file.variables[v], "proj4"):
-               projection = str(self.file.variables[v].proj4)
-               self.proj = pyproj.Proj(projection)
-
-      if self.nn_tree is None:
-         for v in self.file.variables:
-            if hasattr(self.file.variables[v], "proj4"):
-               projection = str(self.file.variables[v].proj4)
-               self.proj = pyproj.Proj(projection)
-               print "Creating KDTree"
-               if "x" in self.file.variables:
-                  x = self.file.variables["x"][:]
-                  y = self.file.variables["y"][:]
-               else:
-                  continue
-               xx, yy = np.meshgrid(x, y)
-               self.lons, self.lats = self.proj(xx, yy, inverse=True)
-
-               coords = np.zeros([len(self.lats.flatten()), 2])
-               coords[:, 0] = xx.flatten()
-               coords[:, 1] = yy.flatten()
-               self.nn_tree = scipy.spatial.KDTree(coords)
-
-      # print "Initialization took %f seconds" % (time.time() - start)
+      try:
+         self.file = netCDF4.Dataset(self.filename, 'r')
+      except Exception as e:
+         print("Could not open file '%s'. %s." % (filename, e))
+         raise
 
    @property
    def variables(self):
@@ -148,13 +99,16 @@ class Netcdf(FcstInput):
          variable (str): Variable name
          members (list): Which ensemble members to use? If None, then use all
       """
-      data = self.file.variables[variable]
-      data = data[:].astype(float)
+      values = np.nan * np.zeros([len(self.leadtimes), len(lats)])
+      s_time = time.time()
+      data = self.file.variables[variable][:]
       if(len(data.shape) == 4):
          X = data.shape[2]
          Y = data.shape[3]
          if members is None:
             data = np.nanmean(data, axis=1)
+         elif len(members) == 1:
+            data = data[:, members[0], :, :]
          else:
             data = np.nanmean(data[:, members, :, :], axis=1)
       elif(len(data.shape) == 3):
@@ -165,49 +119,107 @@ class Netcdf(FcstInput):
          Y = data.shape[4]
          if members is None:
             data = np.nanmean(data[:, 0, :, :, :], axis=1)
+         elif len(members) == 1:
+            data = data[:, 0, members[0], :, :]
          else:
             data = np.nanmean(data[:, 0, members, :, :], axis=1)
       else:
          met2verif.util.error("Input data has strange dimensions")
       q = data.flat
       I, J = self.get_i_j(lats, lons)
-      values = np.nan * np.zeros([len(self.leadtimes), len(lats)])
       for i in range(len(self.leadtimes)):
-         Ivalid = np.where((I != 0) & (J != 0) & (I != self.lats.shape[0] - 1) & (J != self.lats.shape[1] - 1))[0]
-         for k in range(len(I)):
-            if k not in Ivalid:
-               pass
-               # print "Removing stations %d. Outside domain." % k
+         Ivalid = np.where((I >= 0) & (J >= 0))[0]
          indices = np.array(i * X*Y + I[Ivalid]*Y + J[Ivalid], 'int')
          temp = q[indices]
          values[i, Ivalid] = temp
+      print "Getting values %.2f seconds" % (time.time() - s_time)
+
+      return values
+
+   def extract_ens(self, lats, lons, variable):
+      """
+      time, x, y, ens
+      Arguments:
+         lats (np.array): Array of latitudes
+         lons (np.array): Array of longitudes
+         variable (str): Variable name
+      """
+      data = self.file.variables[variable]
+      data = data[:].astype(float)
+      if(len(data.shape) == 4):
+         X = data.shape[2]
+         Y = data.shape[3]
+         data = np.moveaxis(data[:, :, :, :], 1, -1)
+      elif(len(data.shape) == 3):
+         X = data.shape[1]
+         Y = data.shape[2]
+      elif(len(data.shape) == 5):
+         X = data.shape[3]
+         Y = data.shape[4]
+         data = np.moveaxis(data[:, 0, :, :, :], 1, -1)
+         # data = np.mean(data, axis=2)
+      else:
+         met2verif.util.error("Input data has strange dimensions")
+      q = data.flat
+      I, J = self.get_i_j(lats, lons)
+      E = data.shape[3]
+      values = np.nan * np.zeros([len(self.leadtimes), len(lats), E])
+      for i in range(len(self.leadtimes)):
+         for e in range(E):
+            indices = np.array(i * X*Y*E + I[Ivalid]*Y*E + J[Ivalid]*E + e, 'int')
+            temp = q[indices]
+            values[i, Ivalid, e] = temp
 
       return values
 
    def get_i_j(self, lats, lons):
+      """
+         Finds the nearest neighbour in the file's grid for a list of lookup points
+
+         Arguments:
+            lats (list): Latitudes
+            lons (list): Longitudes
+         Returns:
+            I (list): I indices, -1 if outside domain
+            J (list): J indices, -1 if outside domain
+      """
+      # Ivalid = np.where((I != 0) & (J != 0) & (I != lats.shape[0] - 1) & (J != lats.shape[1] - 1))[0]
+      proj = None
+      x = self.file.variables["x"][:]
+      y = self.file.variables["y"][:]
+      for v in self.file.variables:
+         if hasattr(self.file.variables[v], "proj4"):
+            projection = str(self.file.variables[v].proj4)
+            proj = pyproj.Proj(projection)
+
       N = len(lats)
       I = list()
       J = list()
-      if self.nn_tree is not None and self.proj is not None:
+      if proj is not None:
          # Project lat lon onto grid projection
-         xx, yy = self.proj(lons, lats)
-         for i in range(N):
-            x = xx[i]
-            y = yy[i]
-            dist, index = self.nn_tree.query([x, y])
-            indices = np.unravel_index(index, self.lats.shape)
-            I += [indices[0]]
-            J += [indices[1]]
+         xx, yy = proj(lons, lats)
+         J = [int(xxx) for xxx in np.round(np.interp(xx, x, range(len(x)), -1, -1))]
+         I = [int(yyy) for yyy in np.round(np.interp(yy, y, range(len(y)), -1, -1))]
       else:
-         print "Could not find tree"
-         coords = np.zeros([len(self.lats.flatten()), 2])
+         print "Could not find projection. Computing nearest neighbour from lat/lon."
+         # Find lat and lons
+         if "latitude" in self.file.variables:
+            lats = self.file.variables["latitude"][:]
+            lons = self.file.variables["longitude"][:]
+         elif "lat" in self.file.variables:
+            lats = self.file.variables["lat"][:]
+            lons = self.file.variables["lon"][:]
+         else:
+            abort()
+
+         coords = np.zeros([len(lats.flatten()), 2])
          # return np.array([1]*N, int), np.array([1]*N, int)
-         coords[:, 0] = self.lats.flatten()
-         coords[:, 1] = self.lons.flatten()
+         coords[:, 0] = lats.flatten()
+         coords[:, 1] = lons.flatten()
          for i in range(N):
             currlat = lats[i]
             currlon = lons[i]
-            dist = met2verif.util.distance(currlat, currlon, self.lats, self.lons)
+            dist = met2verif.util.distance(currlat, currlon, lats, lons)
             indices = np.unravel_index(dist.argmin(), dist.shape)
             I += [indices[0]]
             J += [indices[1]]

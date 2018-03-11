@@ -166,6 +166,10 @@ def warning(message):
    print "\033[1;33mWarning: " + message + "\033[0m"
 
 
+def parse_ints(numbers):
+   return [int(x) for x in parse_numbers(numbers)]
+
+
 def parse_numbers(numbers, is_date=False):
    """
    Parses numbers from an input string. Recognizes MATLAB syntax, such as:

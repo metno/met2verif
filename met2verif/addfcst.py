@@ -17,7 +17,7 @@ def add_subparser(parser):
    subparser.add_argument('-c', help='Clear forecasts?', dest="clear", action="store_true")
    subparser.add_argument('-o', metavar="FILE", help='Verif file', dest="verif_file", required=True)
    subparser.add_argument('-r', default=[0], type=met2verif.util.parse_numbers, help='What hours after initialization should this be repeated for?', dest="repeats")
-   subparser.add_argument('-e', type=met2verif.util.parse_numbers, help='What ensemble member(s) to use? If unspecified, then take the ensemble mean.', dest="members")
+   subparser.add_argument('-e', type=met2verif.util.parse_ints, help='What ensemble member(s) to use? If unspecified, then take the ensemble mean.', dest="members")
    subparser.add_argument('-f', help='Overwrite values if they are there already', dest="overwrite", action="store_true")
    subparser.add_argument('-s', help='Sort times if needed?', dest="sort", action="store_true")
    subparser.add_argument('-v', type=str, help='variable name', dest="variable", required=True)
@@ -45,14 +45,11 @@ def run(parser):
    leadtimes_orig = np.array(file.variables["leadtime"][:])
 
    """
-   Read inputs. Reuse the nn_tree from the first file to the remaining files
+   Read inputs
    """
    inputs = list()
-   nn_tree_guess = None
    for filename in args.files:
-      input = met2verif.fcstinput.get(filename, nn_tree_guess)
-      nn_tree_guess = copy.deepcopy(input.nn_tree)
-      inputs += [input]
+      inputs += [met2verif.fcstinput.get(filename)]
 
    """
    Read forecast data and expand the array to allow new times to be created. This
