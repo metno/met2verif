@@ -115,7 +115,7 @@ def run(parser):
             elif args.debug:
                print "We do not need to read this file"
       except Exception as e:
-         print "Could not process"
+         print "Could not process: %s" % e
 
    # Convert nans back to fill value
    fcst[np.isnan(fcst)] = netCDF4.default_fillvals['f4']
