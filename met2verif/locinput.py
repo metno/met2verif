@@ -39,6 +39,7 @@ class Kdvh(LocInput):
       Ilon = header.index('LON_DEC')
       Iid = header.index('STNR')
       Ielev = header.index('AMSL')
+      Iwmo = header.index('WMO_NO')
       for line in locfile:
          if len(line) <= 1:
             continue
@@ -53,7 +54,12 @@ class Kdvh(LocInput):
          lat = float(line[Ilat])
          lon = float(line[Ilon])
          elev = float(line[Ielev])
-         locations[id] = {"lat": lat, "lon": lon, "elev": elev}
+         wmo = np.nan
+         try:
+            wmo = int(line[Iwmo])
+         except Exception:
+            pass
+         locations[id] = {"lat": lat, "lon": lon, "elev": elev, "wmo": wmo}
       return locations
 
 
