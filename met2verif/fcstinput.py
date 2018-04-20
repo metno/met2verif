@@ -83,8 +83,11 @@ class Netcdf(FcstInput):
 
    @property
    def forecast_reference_time(self):
-      # return self.file["time"][0]
-      frt = np.ma.filled(self.file.variables["forecast_reference_time"][:], fill_value=np.nan)
+      if "forecast_reference_time" in self.file.variables:
+         frt = np.ma.filled(self.file.variables["forecast_reference_time"][:], fill_value=np.nan)
+      else:
+         verif.util.warning("forecast_reference_time not found in '%s'" % self.filename)
+         frt = self.file["time"][0]
       return frt
 
    @property
