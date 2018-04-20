@@ -77,12 +77,12 @@ class Kdvh(ObsInput):
                time = time + min / 60.0
             raw = data[Ivar]
             if(raw == '.'):
-               value = 0
+               value = np.nan
             elif(raw == 'x'):
-               value = -999
+               value = np.nan
             else:
                value = float(data[Ivar])
-            if value != -999:
+            if not np.isnan(value):
                if date not in date2unixtime_map:
                   ut = met2verif.util.date_to_unixtime(date)
                   date2unixtime_map[date] = ut
