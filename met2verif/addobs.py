@@ -19,6 +19,8 @@ def add_subparser(parser):
    subparser.add_argument('-o', metavar="FILE", help='Verif file', dest="verif_file", required=True)
    subparser.add_argument('-s', help='Sort times if needed?', dest="sort", action="store_true")
    subparser.add_argument('-v', type=str, help='KDVH Variable', dest="variable", required=True)
+   subparser.add_argument('--add', type=float, default=0, help='Add this value to all forecasts (--multiply is done before --add)')
+   subparser.add_argument('--multiply', type=float, default=1, help='Multiply all forecasts with this value')
    subparser.add_argument('--debug', help='Display debug information', action="store_true")
    subparser.add_argument('--force_range', type=str, default=None, help='Remove values outside the range [min,max]', dest="range")
 
@@ -105,7 +107,7 @@ def run(parser):
          # for k in range(len(II[0])):
          #    file.variables["obs"][II[0][k], II[1][k], Iloc] = curr_obs[j]
          if len(II[0]) > 0:
-            obs[II[0], II[1], [Iloc]*len(II[0])] = curr_obs[j]
+            obs[II[0], II[1], [Iloc]*len(II[0])] = curr_obs[j] * args.multiply + args.add
 
    obs[np.isnan(obs)] = netCDF4.default_fillvals['f4']
    file.variables["obs"][:] = obs
