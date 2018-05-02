@@ -107,7 +107,10 @@ def run(parser):
          # for k in range(len(II[0])):
          #    file.variables["obs"][II[0][k], II[1][k], Iloc] = curr_obs[j]
          if len(II[0]) > 0:
-            obs[II[0], II[1], [Iloc]*len(II[0])] = curr_obs[j] * args.multiply + args.add
+            value = curr_obs[j]
+            if curr_obs[j] != -999:
+               value *= args.multiply + args.add
+            obs[II[0], II[1], [Iloc]*len(II[0])] = value
 
    obs[np.isnan(obs)] = netCDF4.default_fillvals['f4']
    file.variables["obs"][:] = obs
