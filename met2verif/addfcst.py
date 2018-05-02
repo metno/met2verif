@@ -21,6 +21,7 @@ def add_subparser(parser):
    subparser.add_argument('-f', help='Overwrite values if they are there already', dest="overwrite", action="store_true")
    subparser.add_argument('-s', help='Sort times if needed?', dest="sort", action="store_true")
    subparser.add_argument('-v', type=str, help='variable name', dest="variable", required=True)
+   subparser.add_argument('--windspeed', help='Compute wind speed?', action="store_true")
    subparser.add_argument('--add', type=float, default=0, help='Add this value to all forecasts (--multiply is done before --add)')
    subparser.add_argument('--multiply', type=float, default=1, help='Multiply all forecasts with this value')
    subparser.add_argument('--debug', help='Display debug information', action="store_true")
@@ -109,7 +110,17 @@ def run(parser):
             if do_write:
                if curr_fcst is None:
                   # Only load values once
-                  curr_fcst = input.extract(lats_orig, lons_orig, args.variable, args.members)
+                  if args.windspeed:
+                     variables = args.variable.split(',')
+                     if len(variables) != 2:
+                        met2verif.util.error("-v must be x_variable_name,y_variable_name")
+                     xvariable = variables[0]
+                     yvariable = variables[1]
+                     curr_x = input.extract(lats_orig, lons_orig, xvariable, args.members)
+                     curr_y = input.extract(lats_orig, lons_orig, yvariable, args.members)
+                     curr_fcst = np.sqrt(curr_x ** 2 + curr_y ** 2)
+                  else:
+                     curr_fcst = input.extract(lats_orig, lons_orig, args.variable, args.members)
 
                fcst[Itime, Ilt_verif, :] = curr_fcst[Ilt_fcst, :] * args.multiply + args.add
             elif args.debug:

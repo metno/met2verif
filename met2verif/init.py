@@ -14,7 +14,7 @@ import met2verif.addobs
 
 def add_subparser(parser):
    subparser = parser.add_parser('init', help='Initialize verif file')
-   subparser.add_argument('-l', help='Locations file', dest="locations_file", required=True)
+   subparser.add_argument('-l', help='Locations metadata file', dest="locations_file", required=True)
    subparser.add_argument('-lt', type=met2verif.util.parse_numbers, help='Lead times (hours)', dest="leadtimes", required=True)
    subparser.add_argument('-o', metavar="FILE", help='Verif file', dest="verif_file", required=True)
    subparser.add_argument('-s', help='Standard name', dest="standard_name")
