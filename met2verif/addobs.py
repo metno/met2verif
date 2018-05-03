@@ -22,7 +22,7 @@ def add_subparser(parser):
    subparser.add_argument('--add', type=float, default=0, help='Add this value to all forecasts (--multiply is done before --add)')
    subparser.add_argument('--multiply', type=float, default=1, help='Multiply all forecasts with this value')
    subparser.add_argument('--debug', help='Display debug information', action="store_true")
-   subparser.add_argument('--force_range', type=str, default=None, help='Remove values outside the range [min,max]', dest="range")
+   subparser.add_argument('--force_range', metavar="MIN,MAX", type=met2verif.util.parse_numbers, help='Remove values outside the range min,max', dest="range")
 
    return subparser
 
@@ -111,6 +111,13 @@ def run(parser):
             if curr_obs[j] != -999:
                value *= args.multiply + args.add
             obs[II[0], II[1], [Iloc]*len(II[0])] = value
+
+   """ Remove observations outside range """
+   if args.range is not None:
+      if len(args.range) != 2:
+         met2verif.util.error("--force_range must be a vector of length 2")
+      obs[obs < args.range[0]] = np.nan
+      obs[obs > args.range[1]] = np.nan
 
    obs[np.isnan(obs)] = netCDF4.default_fillvals['f4']
    file.variables["obs"][:] = obs
