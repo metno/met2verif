@@ -25,6 +25,7 @@ def add_subparser(parser):
    subparser.add_argument('--add', type=float, default=0, help='Add this value to all forecasts (--multiply is done before --add)')
    subparser.add_argument('--multiply', type=float, default=1, help='Multiply all forecasts with this value')
    subparser.add_argument('--debug', help='Display debug information', action="store_true")
+   subparser.add_argument('--deacc', help='Deaccumulate values in time', action="store_true")
 
    return subparser
 
@@ -121,6 +122,9 @@ def run(parser):
                      curr_fcst = np.sqrt(curr_x ** 2 + curr_y ** 2)
                   else:
                      curr_fcst = input.extract(lats_orig, lons_orig, args.variable, args.members)
+                     if args.deacc:
+                        curr_fcst[1:, :] = np.diff(curr_fcst, axis=0)
+                        curr_fcst[0, :] = np.nan
 
                fcst[Itime, Ilt_verif, :] = curr_fcst[Ilt_fcst, :] * args.multiply + args.add
             elif args.debug:
