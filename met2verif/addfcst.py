@@ -4,6 +4,7 @@ import netCDF4
 import numpy as np
 import os
 import sys
+import traceback
 import met2verif.fcstinput
 import met2verif.locinput
 import met2verif.obsinput
@@ -51,7 +52,12 @@ def run(parser, argv=sys.argv[1:]):
    """
    inputs = list()
    for filename in args.files:
-      inputs += [met2verif.fcstinput.get(filename)]
+      try:
+         inputs += [met2verif.fcstinput.get(filename)]
+      except Exception as e:
+         print "Could not open file '%s'. %s." % (filename, e)
+         if args.debug:
+            traceback.print_exc()
 
    """
    Read forecast data and expand the array to allow new times to be created. This
@@ -105,7 +111,6 @@ def run(parser, argv=sys.argv[1:]):
             assert(len(Itime) == 1)
             Ilt_verif = [i for i in range(len(leadtimes_orig)) if leadtimes_orig[i] in leadtimes_new]
             Ilt_fcst = [np.where(lt == leadtimes_new)[0][0] for lt in leadtimes_orig[Ilt_verif]]
-
             # Determine if we need to write data from this filename
             do_write = args.overwrite or np.sum(np.isnan(fcst[Itime, Ilt_verif, :]) == 0) == 0
             if do_write:
@@ -131,7 +136,10 @@ def run(parser, argv=sys.argv[1:]):
                print "We do not need to read this file"
       except Exception as e:
          print "Could not process: %s" % e
+         if args.debug:
+            traceback.print_exc()
 
    # Convert nans back to fill value
    fcst[np.isnan(fcst)] = netCDF4.default_fillvals['f4']
    file.variables["fcst"][:] = fcst
+   file.close()

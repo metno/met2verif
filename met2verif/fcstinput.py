@@ -64,35 +64,26 @@ class FcstInput(object):
 
 class Netcdf(FcstInput):
    def __init__(self, filename, coord_gues=None):
-      import time
-      start = time.time()
       self.filename = filename
       try:
          self.file = netCDF4.Dataset(self.filename, 'r')
       except Exception as e:
          print("Could not open file '%s'. %s." % (filename, e))
          raise
+      if len(self.file.variables["time"]) == 0:
+         print("File does not have any times")
+         raise Exception
+      self.times = self.file.variables["time"][:]
+      self.variables = self.file.variables.keys()
 
-   @property
-   def variables(self):
-      return self.file.variables.keys()
-
-   @property
-   def times(self):
-      return self.file.variables["time"][:]
-
-   @property
-   def forecast_reference_time(self):
       if "forecast_reference_time" in self.file.variables:
-         frt = np.ma.filled(self.file.variables["forecast_reference_time"][:], fill_value=np.nan)
+         self.forecast_reference_time = np.ma.filled(self.file.variables["forecast_reference_time"][:], fill_value=np.nan)
       else:
          verif.util.warning("forecast_reference_time not found in '%s'" % self.filename)
-         frt = self.file["time"][0]
-      return frt
+         self.forecast_reference_time = self.file["time"][0]
+      self.leadtimes = (self.times - self.forecast_reference_time) / 3600
 
-   @property
-   def leadtimes(self):
-      return (self.times - self.forecast_reference_time) / 3600
+      self.file.close()
 
    def extract(self, lats, lons, variable, members=[0], aggregator=np.nanmean):
       """
@@ -105,41 +96,67 @@ class Netcdf(FcstInput):
          members (list): Which ensemble members to use? If None, then use all
          aggregator (function): What function to use to aggregate ensemble?
       """
+      file = netCDF4.Dataset(self.filename, 'r')
       values = np.nan * np.zeros([len(self.leadtimes), len(lats)])
       s_time = time.time()
-      data = self.file.variables[variable][:]
-      if(len(data.shape) == 4):
-         X = data.shape[2]
-         Y = data.shape[3]
+      data = file.variables[variable][:]
+      dims = file.variables[variable].dimensions
+      has_ens = "ensemble_member" in dims
+      has_time = "time" in dims
+      has_x = "x" in dims
+      has_y = "y" in dims
+      assert(has_time)
+      X = 1
+      I_time = dims.index("time")
+      Y = 1
+      I_x = None
+      I_y = None
+      if has_x:
+         I_x = dims.index("x")
+         X = file.variables[variable].shape[I_x]
+      if has_y:
+         I_y = dims.index("y")
+         Y = file.variables[variable].shape[I_y]
+
+      # Collapse ensemble information
+      if has_ens:
+         I_ens = dims.index("ensemble_member")
          if members is None:
-            data = np.nanmean(data, axis=1)
-         elif len(members) == 1:
-            data = data[:, members[0], :, :]
+            data = aggregator(data, axis=I_ens)
          else:
-            data = aggregator(data[:, members, :, :], axis=1)
-      elif(len(data.shape) == 3):
-         X = data.shape[1]
-         Y = data.shape[2]
-      elif(len(data.shape) == 5):
-         X = data.shape[3]
-         Y = data.shape[4]
-         if members is None:
-            data = aggregator(data[:, 0, :, :, :], axis=1)
-         elif len(members) == 1:
-            data = data[:, 0, members[0], :, :]
-         else:
-            data = aggregator(data[:, 0, members, :, :], axis=1)
-      else:
-         met2verif.util.error("Input data has strange dimensions")
+            Im = members
+            if I_ens == 0:
+               data = data[Im, ...]
+            elif I_ens == 1:
+               data = data[:, Im, ...]
+            elif I_ens == 2:
+               data = data[:, :, Im, ...]
+            elif I_ens == 3:
+               data = data[:, :, :, Im, ...]
+            elif I_ens == 4:
+               data = data[:, :, :, :, Im, ...]
+            data = aggregator(data, axis=I_ens)
+
+      if I_time != 0:
+         data = np.moveaxis(data, I_time, 0)
+
       q = data.flat
       I, J = self.get_i_j(lats, lons)
       for i in range(len(self.leadtimes)):
          Ivalid = np.where((I >= 0) & (J >= 0))[0]
-         indices = np.array(i * X*Y + I[Ivalid]*Y + J[Ivalid], 'int')
+         if I_x is None:
+            indices = np.array(i * Y + I[Ivalid] + J[Ivalid], 'int')
+         elif I_y is None:
+            indices = np.array(i * X + I[Ivalid] + J[Ivalid], 'int')
+         elif I_x < I_y:
+            indices = np.array(i * X*Y + I[Ivalid]*Y + J[Ivalid], 'int')
+         else:
+            indices = np.array(i * X*Y + I[Ivalid]*X + J[Ivalid], 'int')
          temp = q[indices]
          values[i, Ivalid] = temp
       print "Getting values %.2f seconds" % (time.time() - s_time)
 
+      file.close()
       return values
 
    def extract_ens(self, lats, lons, variable):
@@ -190,43 +207,43 @@ class Netcdf(FcstInput):
             J (list): J indices, -1 if outside domain
       """
       proj = None
-      x = self.file.variables["x"][:]
-      y = self.file.variables["y"][:]
-      for v in self.file.variables:
-         if hasattr(self.file.variables[v], "proj4"):
-            projection = str(self.file.variables[v].proj4)
-            proj = pyproj.Proj(projection)
-
       N = len(lats)
       I = list()
       J = list()
-      if proj is not None:
-         # Project lat lon onto grid projection
-         xx, yy = proj(lons, lats)
-         J = [int(xxx) for xxx in np.round(np.interp(xx, x, range(len(x)), -1, -1))]
-         I = [int(yyy) for yyy in np.round(np.interp(yy, y, range(len(y)), -1, -1))]
-      else:
+      if "x" in self.file.variables and "y" in self.file.variables:
+         x = self.file.variables["x"][:]
+         y = self.file.variables["y"][:]
+         for v in self.file.variables:
+            if hasattr(self.file.variables[v], "proj4"):
+               projection = str(self.file.variables[v].proj4)
+               proj = pyproj.Proj(projection)
+
+         if proj is not None:
+            # Project lat lon onto grid projection
+            xx, yy = proj(lons, lats)
+            J = [int(xxx) for xxx in np.round(np.interp(xx, x, range(len(x)), -1, -1))]
+            I = [int(yyy) for yyy in np.round(np.interp(yy, y, range(len(y)), -1, -1))]
+      if proj is None:
          print "Could not find projection. Computing nearest neighbour from lat/lon."
          # Find lat and lons
          if "latitude" in self.file.variables:
-            lats = self.file.variables["latitude"][:]
-            lons = self.file.variables["longitude"][:]
+            ilats = self.file.variables["latitude"][:]
+            ilons = self.file.variables["longitude"][:]
          elif "lat" in self.file.variables:
-            lats = self.file.variables["lat"][:]
-            lons = self.file.variables["lon"][:]
+            ilats = self.file.variables["lat"][:]
+            ilons = self.file.variables["lon"][:]
          else:
             abort()
 
-         coords = np.zeros([len(lats.flatten()), 2])
-         # return np.array([1]*N, int), np.array([1]*N, int)
-         coords[:, 0] = lats.flatten()
-         coords[:, 1] = lons.flatten()
          for i in range(N):
             currlat = lats[i]
             currlon = lons[i]
-            dist = met2verif.util.distance(currlat, currlon, lats, lons)
+            dist = met2verif.util.distance(currlat, currlon, ilats, ilons)
             indices = np.unravel_index(dist.argmin(), dist.shape)
             I += [indices[0]]
-            J += [indices[1]]
+            if len(indices) == 2:
+               J += [indices[1]]
+            else:
+               J += [0]
 
       return np.array(I, int), np.array(J, int)
