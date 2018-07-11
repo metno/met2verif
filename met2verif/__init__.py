@@ -16,7 +16,7 @@ import met2verif.locinput
 import met2verif.obsinput
 
 
-def main():
+def main(argv=sys.argv[1:]):
    parser = argparse.ArgumentParser(description='Iitialises and adds to verif file')
    parser.add_argument('--version', action="version", version=met2verif.version.__version__)
    subparsers = parser.add_subparsers(title="Choose one of these commands", dest="command")
@@ -27,26 +27,26 @@ def main():
    sp["init"] = met2verif.init.add_subparser(subparsers)
    sp["download"] = met2verif.download.add_subparser(subparsers)
 
-   if len(sys.argv) == 1:
+   if len(argv) == 0:
       parser.print_help()
       sys.exit(1)
-   elif len(sys.argv) == 2 and sys.argv[1] == "--version":
+   elif len(argv) == 1 and argv[0] == "--version":
       print(met2verif.version.__version__)
       return
-   elif len(sys.argv) == 2 and sys.argv[1] in sp.keys():
-      sp[sys.argv[1]].print_help()
+   elif len(argv) == 1 and argv[0] in sp.keys():
+      sp[argv[0]].print_help()
       return
 
-   args = parser.parse_args()
+   args = parser.parse_args(argv)
 
    if args.command == "init":
-      met2verif.init.run(parser)
+      met2verif.init.run(parser, argv)
    elif args.command == "addobs":
-      met2verif.addobs.run(parser)
+      met2verif.addobs.run(parser, argv)
    elif args.command == "addfcst":
-      met2verif.addfcst.run(parser)
+      met2verif.addfcst.run(parser, argv)
    elif args.command == "download":
-      met2verif.download.run(parser)
+      met2verif.download.run(parser, argv)
 
 
 if __name__ == '__main__':

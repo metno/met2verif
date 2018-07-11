@@ -28,8 +28,8 @@ def add_subparser(parser):
    return subparser
 
 
-def run(parser):
-   args = parser.parse_args()
+def run(parser, argv=sys.argv[1:]):
+   args = parser.parse_args(argv)
 
    # Set up url
    start_date = get_date(args.sd)

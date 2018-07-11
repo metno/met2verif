@@ -30,8 +30,8 @@ def add_subparser(parser):
    return subparser
 
 
-def run(parser):
-   args = parser.parse_args()
+def run(parser, argv=sys.argv[1:]):
+   args = parser.parse_args(argv)
 
    if not os.path.exists(args.verif_file):
       met2verif.util.error("File '%s' does not exist" % args.verif_file)

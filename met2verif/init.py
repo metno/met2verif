@@ -1,10 +1,10 @@
-import sys
 import argparse
 import met2verif.util
 import met2verif.version
 import netCDF4
 import numpy as np
 import os
+import sys
 import met2verif.obsinput
 import met2verif.fcstinput
 import met2verif.locinput
@@ -24,8 +24,8 @@ def add_subparser(parser):
    return subparser
 
 
-def run(parser):
-   args = parser.parse_args()
+def run(parser, argv=sys.argv[1:]):
+   args = parser.parse_args(argv)
 
    ofilename = args.verif_file
 
