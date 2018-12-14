@@ -98,8 +98,13 @@ def run(parser, argv=sys.argv[1:]):
    lats_orig = file.variables["lat"][:]
    lons_orig = file.variables["lon"][:]
 
-   for input in inputs:
-      print "Processing %s" % input.filename
+   for Iinput, input in enumerate(inputs):
+      # print "Processing %s" % input.filename
+      if args.debug:
+         step = max(1, len(inputs) / 100)
+         frac = float(Iinput) / len(inputs)
+         if Iinput % step == 0:
+            met2verif.util.progress_bar(frac, 80)
       try:
          leadtimes = input.leadtimes
 

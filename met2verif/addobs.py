@@ -96,6 +96,12 @@ def run(parser, argv=sys.argv[1:]):
    Place each new observation into the appropriate time and leadtime slots
    """
    for i, id in enumerate(new_ids):
+      if args.debug:
+         step = len(new_ids) / 100
+         frac = float(i) / len(new_ids)
+         if i % step == 0:
+         # if int(frac * 100) % 5 == 0:
+            met2verif.util.progress_bar(frac, 80)
       I = np.where(data["ids"] == id)[0]
       Iloc = np.where(ids_orig == id)[0][0]
       curr_valid_times = data["times"][I]
