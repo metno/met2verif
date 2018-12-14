@@ -108,7 +108,7 @@ def run(parser, argv=sys.argv[1:]):
          #    file.variables["obs"][II[0][k], II[1][k], Iloc] = curr_obs[j]
          if len(II[0]) > 0:
             value = curr_obs[j]
-            if curr_obs[j] != -999:
+            if curr_obs[j] not in [-999, 99999]:
                value *= args.multiply + args.add
             obs[II[0], II[1], [Iloc]*len(II[0])] = value
 
