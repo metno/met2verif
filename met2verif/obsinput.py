@@ -9,6 +9,8 @@ def get(filename):
     if len(header) > 5:
         if header[0:5] == " Stnr":
             return Kdvh(filename)
+        elif header[0:2] == "id":
+            return Text(filename)
         else:
             words = header.split(';')
             if "lat" in words:
@@ -32,6 +34,60 @@ class ObsInput(object):
             obs (np.array):
         """
         raise NotImplementedError
+
+
+class Text(ObsInput):
+    def __init__(self, filename):
+        self.filename = filename
+
+    def read(self, variable):
+        ifile = open(self.filename, 'r')
+        header = ifile.readline().replace('\n', '').split(';')
+        header = [i for i in header if i is not '']
+        Iid = header.index("id")
+        Idate = header.index("date")
+        Ihour = header.index("hour")
+        Ivar = header.index(variable)
+        if None in [Iid, Idate, Ihour, Ivar]:
+            print "The header in %s is invalid:" % ifilename
+            print header
+            ifile.close()
+            return {}
+        times = list()
+        obs = list()
+        ids = list()
+
+        date2unixtime_map = dict()  # Lookup table for converting date to unixtime
+        for line in ifile:
+            data = line.strip().split(';')
+            if len(data) > 1 and met2verif.util.is_number(data[0]):
+                try:
+                    id = int(data[Iid])
+                    date = int(data[Idate])
+                    time = int(data[Ihour])
+                except Exception:
+                    print "Could not read the following:"
+                    print data
+                    continue
+                raw = data[Ivar]
+                if(raw == '.'):
+                    value = np.nan
+                elif(raw == 'x'):
+                    value = np.nan
+                else:
+                    value = float(data[Ivar])
+                if not np.isnan(value):
+                    if date not in date2unixtime_map:
+                        ut = met2verif.util.date_to_unixtime(date)
+                        date2unixtime_map[date] = ut
+                    else:
+                        ut = date2unixtime_map[date]
+                    times += [ut + time*3600]
+                    ids += [id]
+                    obs += [value]
+
+        data = {"times": np.array(times, int), "ids": np.array(ids, int), "obs": np.array(obs)}
+        return data
 
 
 class Kdvh(ObsInput):
