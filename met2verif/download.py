@@ -35,6 +35,8 @@ def add_subparser(parser):
 def run(parser, argv=sys.argv[1:]):
     args = parser.parse_args(argv)
 
+    variables = args.variables.split(',')
+
     if args.api == 'frost':
         if args.client_id is None:
             met2verif.util.error('frost api needs -id')
@@ -57,7 +59,7 @@ def run(parser, argv=sys.argv[1:]):
 
 
         ofile = open(args.filename, 'w')
-        ofile.write('id;date;hour;value' + '\n')
+        ofile.write('id;date;hour;%s\n' % ';'.join(variables))
 
         ids_obs_dict = dict() # declare outside loop, since may be more than one request
         # check how long the list of stations is and potentially break it up to shorten
@@ -96,14 +98,24 @@ def run(parser, argv=sys.argv[1:]):
             if r.status_code == 200:
                 data = r.json()['data']
                 for i in range(len(data)):
+                    values = [-999] * len(variables)
                     value = data[i]['observations'][0]['value']
-                    if len(str(value)) > 0:  # not all stations have observations
-                        reference_time = data[i]['referenceTime']
-                        date = reference_time[0:4] + reference_time[5:7] + reference_time[8:10]
-                        hour = reference_time[11:13]
-                        sourceId = str(data[i]['sourceId'])
-                        id = sourceId.split(':')[0].replace('SN', '')
-                    ofile.write("%s;%s;%s;%.2f\n" % (id, date, hour, value))
+                    reference_time = data[i]['referenceTime']
+                    date = reference_time[0:4] + reference_time[5:7] + reference_time[8:10]
+                    hour = reference_time[11:13]
+                    sourceId = str(data[i]['sourceId'])
+                    id = sourceId.split(':')[0].replace('SN', '')
+                    for o in data[i]['observations']:
+                        element = o['elementId']
+                        I = variables.index(element)
+                        value = o['value']
+                        if value == "":
+                            value = -999
+                        values[I] = value
+                    ofile.write("%s;%s;%s" % (id, date, hour))
+                    for i in range(len(variables)):
+                        ofile.write(";%.3f" % values[i])
+                    ofile.write("\n")
             elif r.status_code == 404:
                  print('STATUS: No data was found for the list of query Ids.')
             else:
