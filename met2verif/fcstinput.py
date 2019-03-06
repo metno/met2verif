@@ -63,7 +63,7 @@ class FcstInput(object):
 
 
 class Netcdf(FcstInput):
-    def __init__(self, filename, coord_gues=None):
+    def __init__(self, filename, coord_guess=None):
         self.filename = filename
         try:
             self.file = netCDF4.Dataset(self.filename, 'r')
