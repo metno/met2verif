@@ -54,7 +54,7 @@ def run(parser, argv=sys.argv[1:]):
     for filename in args.files:
         try:
             inputs += [met2verif.fcstinput.get(filename)]
-        except Exception as e:
+        except ValueError as e:
             print "Could not open file '%s'. %s." % (filename, e)
             if args.debug:
                 traceback.print_exc()
