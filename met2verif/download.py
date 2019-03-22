@@ -49,6 +49,7 @@ def run(parser, argv=sys.argv[1:]):
             # Read from file
             try:
                 ids = met2verif.locinput.get(args.locations).read().keys()
+                ids = ['SN' + str(id) for id in ids]
             except Exception as e:
                 file = open(args.locations, 'r')
                 ids = list()
