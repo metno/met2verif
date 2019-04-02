@@ -71,7 +71,7 @@ class Netcdf(FcstInput):
             print("Could not open file '%s'. %s." % (filename, e))
             raise
         if len(self.file.variables["time"]) == 0:
-            print("File does not have any times")
+            print("File '%s' does not have any times" % self.filename)
             raise Exception
         self.times = self.file.variables["time"][:]
         self.variables = self.file.variables.keys()
@@ -79,7 +79,7 @@ class Netcdf(FcstInput):
         if "forecast_reference_time" in self.file.variables:
             self.forecast_reference_time = np.ma.filled(self.file.variables["forecast_reference_time"][:], fill_value=np.nan)
         else:
-            verif.util.warning("forecast_reference_time not found in '%s'" % self.filename)
+            verif.util.warning("forecast_reference_time not found in '%s'. Using 'time' variable." % self.filename)
             self.forecast_reference_time = self.file["time"][0]
         self.leadtimes = (self.times - self.forecast_reference_time) / 3600
 
@@ -114,8 +114,14 @@ class Netcdf(FcstInput):
         if has_x:
             I_x = dims.index("x")
             X = file.variables[variable].shape[I_x]
+        elif "longitude" in dims:
+            I_x = dims.index("longitude")
+            X = file.variables[variable].shape[I_x]
         if has_y:
             I_y = dims.index("y")
+            Y = file.variables[variable].shape[I_y]
+        elif "latitude" in dims:
+            I_y = dims.index("latitude")
             Y = file.variables[variable].shape[I_y]
 
         # Collapse ensemble information
@@ -136,6 +142,12 @@ class Netcdf(FcstInput):
                 elif I_ens == 4:
                     data = data[:, :, :, :, Im, ...]
                 data = aggregator(data, axis=I_ens)
+        # Convert masked values to nan
+        np.ma.set_fill_value(data, np.nan)
+        try:
+            data = data.filled()
+        except Exception:
+            pass
 
         if I_time != 0:
             data = np.moveaxis(data, I_time, 0)
@@ -234,16 +246,21 @@ class Netcdf(FcstInput):
                 ilons = self.file.variables["lon"][:]
             else:
                 abort()
-
+            is_regular_grid = len(ilats.shape)
             for i in range(N):
                 currlat = lats[i]
                 currlon = lons[i]
-                dist = met2verif.util.distance(currlat, currlon, ilats, ilons)
-                indices = np.unravel_index(dist.argmin(), dist.shape)
-                I += [indices[0]]
-                if len(indices) == 2:
-                    J += [indices[1]]
+                if is_regular_grid:
+                    # TODO: This assumes that latitude is before longitude in the dimensions of a variable
+                    I += [np.argmin(np.abs(currlat - ilats))]
+                    J += [np.argmin(np.abs(currlon - ilons))]
                 else:
-                    J += [0]
+                    dist = met2verif.util.distance(currlat, currlon, ilats, ilons)
+                    indices = np.unravel_index(dist.argmin(), dist.shape)
+                    I += [indices[0]]
+                    if len(indices) == 2:
+                        J += [indices[1]]
+                    else:
+                        J += [0]
 
         return np.array(I, int), np.array(J, int)
