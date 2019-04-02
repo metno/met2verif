@@ -18,7 +18,8 @@ def add_subparser(parser):
     subparser.add_argument('-i', type=met2verif.util.parse_numbers, default=[0], help='Initialization hours', dest="inithours")
     subparser.add_argument('-o', metavar="FILE", help='Verif file', dest="verif_file", required=True)
     subparser.add_argument('-s', help='Sort times if needed?', dest="sort", action="store_true")
-    subparser.add_argument('-v', type=str, help='KDVH Variable', dest="variable", required=True)
+    subparser.add_argument('-v', type=str, help='Variable name in obs files', dest="variable", required=True)
+    subparser.add_argument('-vo', default="obs", type=str, help='Variable name in verif file', dest="ovariable")
     subparser.add_argument('--add', type=float, default=0, help='Add this value to all forecasts (--multiply is done before --add)')
     subparser.add_argument('--multiply', type=float, default=1, help='Multiply all forecasts with this value')
     subparser.add_argument('--debug', help='Display debug information', action="store_true")
@@ -39,6 +40,8 @@ def run(parser, argv=sys.argv[1:]):
         times_orig = []
     else:
         times_orig = times[:]
+    if args.ovariable not in file.variables:
+        file.createVariable(args.ovariable, 'f4', ('time', 'leadtime', 'location'))
 
     ids_orig = np.array(file.variables["location"][:])
     leadtimes_orig = np.array(file.variables["leadtime"][:])
@@ -79,7 +82,7 @@ def run(parser, argv=sys.argv[1:]):
 
     obs = np.nan * np.zeros([len(times_new), len(leadtimes_orig), len(ids_orig)])
     if len(times_orig) > 0 and not args.clear:
-        obs[range(len(times_orig)), :, :] = file.variables["obs"][:]
+        obs[range(len(times_orig)), :, :] = file.variables[args.ovariable][:]
 
     if args.sort:
         Itimes = np.argsort(times_new)
@@ -126,7 +129,7 @@ def run(parser, argv=sys.argv[1:]):
         obs[obs > args.range[1]] = np.nan
 
     obs[np.isnan(obs)] = netCDF4.default_fillvals['f4']
-    file.variables["obs"][:] = obs
+    file.variables[args.ovariable][:] = obs
 
     curr_times = list()
     file.close()

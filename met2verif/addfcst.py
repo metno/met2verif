@@ -21,7 +21,8 @@ def add_subparser(parser):
     subparser.add_argument('-e', type=met2verif.util.parse_ints, help='What ensemble member(s) to use? If unspecified, then take the ensemble mean.', dest="members")
     subparser.add_argument('-f', help='Overwrite values if they are there already', dest="overwrite", action="store_true")
     subparser.add_argument('-s', help='Sort times if needed?', dest="sort", action="store_true")
-    subparser.add_argument('-v', type=str, help='variable name', dest="variable", required=True)
+    subparser.add_argument('-v', type=str, help='Variable name in forecast files', dest="variable", required=True)
+    subparser.add_argument('-vo', default="fcst", type=str, help='Variable name in verif file', dest="ovariable")
     subparser.add_argument('--windspeed', help='Compute wind speed?', action="store_true")
     subparser.add_argument('--add', type=float, default=0, help='Add this value to all forecasts (--multiply is done before --add)')
     subparser.add_argument('--multiply', type=float, default=1, help='Multiply all forecasts with this value')
@@ -43,6 +44,8 @@ def run(parser, argv=sys.argv[1:]):
         times_orig = []
     else:
         times_orig = times[:]
+    if args.ovariable not in file.variables:
+        file.createVariable(args.ovariable, 'f4', ('time', 'leadtime', 'location'))
 
     ids_orig = np.array(file.variables["location"][:])
     leadtimes_orig = np.array(file.variables["leadtime"][:])
@@ -54,7 +57,7 @@ def run(parser, argv=sys.argv[1:]):
     for filename in args.files:
         try:
             inputs += [met2verif.fcstinput.get(filename)]
-        except ValueError as e:
+        except Exception as e:
             print "Could not open file '%s'. %s." % (filename, e)
             if args.debug:
                 traceback.print_exc()
@@ -81,7 +84,7 @@ def run(parser, argv=sys.argv[1:]):
 
     fcst = np.nan * np.zeros([len(times_new), len(leadtimes_orig), len(ids_orig)])
     if len(times_orig) > 0 and not args.clear:
-        fcst[range(len(times_orig)), :, :] = file.variables["fcst"][:]
+        fcst[range(len(times_orig)), :, :] = file.variables[args.ovariable][:]
         # Convert fill values to nan
         fcst[fcst == netCDF4.default_fillvals['f4']] = np.nan
 
@@ -146,5 +149,5 @@ def run(parser, argv=sys.argv[1:]):
 
     # Convert nans back to fill value
     fcst[np.isnan(fcst)] = netCDF4.default_fillvals['f4']
-    file.variables["fcst"][:] = fcst
+    file.variables[args.ovariable][:] = fcst
     file.close()
