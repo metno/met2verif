@@ -246,7 +246,7 @@ class Netcdf(FcstInput):
                 ilons = self.file.variables["lon"][:]
             else:
                 abort()
-            is_regular_grid = len(ilats.shape)
+            is_regular_grid = len(ilats.shape) == 1 and len(ilons.shape) == 1
             for i in range(N):
                 currlat = lats[i]
                 currlon = lons[i]
