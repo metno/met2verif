@@ -25,6 +25,7 @@ def add_subparser(parser):
     subparser.add_argument('-ed', type=str, help='End date (yyyymmdd)', dest="ed", required=True)
     subparser.add_argument('-v', type=str, help='List of variables (e.g. TA,FF)', dest="variables", required=True)
     subparser.add_argument('--api', default='frost', help="Which API to read from? 'frost', or 'ulric'. Default 'frost'", choices=['frost', 'ulric'])
+    subparser.add_argument('--host', help="Hostname for api (only use when overriding hostname for frost)")
     subparser.add_argument('-id', help="Frost API client ID", dest="client_id")
     subparser.add_argument('--level', help='Level, Sensor level for observations, example: 2)', dest="level") # default will get all available
     subparser.add_argument('--debug', help='Display debug information', action="store_true")
@@ -91,8 +92,10 @@ def run(parser, argv=sys.argv[1:]):
             if args.level is not None:
                  parameters2['levels'] = str(args.level)
 
-            r = requests.get('https://frost.met.no/observations/v0.jsonld',
-                                    parameters2, auth=(args.client_id, ''))
+            host = 'https://frost.met.no'
+            if args.host is not None:
+                host = args.host
+            r = requests.get('%s/observations/v0.jsonld' % host, parameters2, auth=(args.client_id, ''))
             if args.debug:
                 print(parameters2)
                 print(r)
