@@ -102,7 +102,7 @@ def run(parser, argv=sys.argv[1:]):
         if args.debug:
             step = len(new_ids) / 100
             frac = float(i) / len(new_ids)
-            if i % step == 0:
+            if len(new_ids) > 100 and i % step == 0:
                 # if int(frac * 100) % 5 == 0:
                 met2verif.util.progress_bar(frac, 80)
         I = np.where(data["ids"] == id)[0]
