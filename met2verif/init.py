@@ -19,6 +19,8 @@ def add_subparser(parser):
     subparser.add_argument('-o', metavar="FILE", help='Verif file', dest="verif_file", required=True)
     subparser.add_argument('-s', help='Standard name', dest="standard_name")
     subparser.add_argument('-u', help='Units', dest="units")
+    subparser.add_argument('-q', type=met2verif.util.parse_numbers, help='Quantiles', dest="quantiles")
+    subparser.add_argument('-t', type=met2verif.util.parse_numbers, help='Thresholds', dest="thresholds")
     subparser.add_argument('--debug', help='Display debug information', action="store_true")
 
     return subparser
@@ -37,6 +39,11 @@ def run(parser, argv=sys.argv[1:]):
     file.createDimension("time", None)
     file.createDimension("leadtime", len(args.leadtimes))
     file.createDimension("location", len(locations))
+    if args.quantiles is not None:
+        file.createDimension("quantile", len(args.quantiles))
+    if args.thresholds is not None:
+        file.createDimension("threshold", len(args.thresholds))
+
     vTime = file.createVariable("time", "i4", ("time",))
     vOffset = file.createVariable("leadtime", "f4", ("leadtime",))
     vLocation = file.createVariable("location", "i4", ("location",))
@@ -45,6 +52,18 @@ def run(parser, argv=sys.argv[1:]):
     vElev = file.createVariable("altitude", "f4", ("location",))
     vfcst = file.createVariable("fcst", "f4", ("time", "leadtime", "location"))
     vobs = file.createVariable("obs", "f4", ("time", "leadtime", "location"))
+
+    if args.quantiles is not None:
+        var = file.createVariable("quantile", "f4", ["quantile"])
+        var[:] = args.quantiles
+        var = file.createVariable("x", "f4", ("time", "leadtime", "location", "quantile"))
+
+    if args.thresholds is not None:
+        var = file.createVariable("threshold", "f4", ["threshold"])
+        var[:] = args.thresholds
+        var = file.createVariable("cdf", "f4", ("time", "leadtime", "location", "threshold"))
+
+    # Attributes
     if args.standard_name:
         file.standard_name = args.standard_name
     else:
