@@ -142,6 +142,7 @@ def run(parser, argv=sys.argv[1:]):
                     fcst[Itime, Ilt_verif, :] = curr_fcst[Ilt_fcst, :] * args.multiply + args.add
                 elif args.debug:
                     print "We do not need to read this file"
+            file.sync()
         except Exception as e:
             print "Could not process: %s" % e
             if args.debug:
