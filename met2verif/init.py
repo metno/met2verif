@@ -21,9 +21,9 @@ def add_subparser(parser):
     subparser.add_argument('-u', help='Units', dest="units")
     subparser.add_argument('-q', type=met2verif.util.parse_numbers, help='Quantiles', dest="quantiles")
     subparser.add_argument('-t', type=met2verif.util.parse_numbers, help='Thresholds', dest="thresholds")
-    subparser.add_argument('--debug', help='Display debug information', action="store_true")
     subparser.add_argument('-x0', type=float, help='Lower boundary within discrete mass (e.g. 0 for precip)')
     subparser.add_argument('-x1', type=float, help='Upper boundary within discrete mass (e.g. 100 for RH)')
+    subparser.add_argument('--debug', help='Display debug information', action="store_true")
 
     return subparser
 
@@ -65,7 +65,7 @@ def run(parser, argv=sys.argv[1:]):
         var[:] = args.thresholds
         var = file.createVariable("cdf", "f4", ("time", "leadtime", "location", "threshold"))
 
-    # Attributes
+    """ Attributes """
     if args.standard_name:
         file.standard_name = args.standard_name
     else:

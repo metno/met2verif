@@ -19,6 +19,7 @@ def add_subparser(parser):
     subparser.add_argument('-o', metavar="FILE", help='Verif file', dest="verif_file", required=True)
     subparser.add_argument('-r', default=[0], type=met2verif.util.parse_numbers, help='What hours after initialization should this be repeated for?', dest="repeats")
     subparser.add_argument('-e', type=met2verif.util.parse_ints, help='What ensemble member(s) to use? If unspecified, then take the ensemble mean.', dest="members")
+    subparser.add_argument('-a', default="mean", help='Aggregator for computing fcst', dest="aggregator", choices=["mean", "median", "min", "max"])
     subparser.add_argument('-f', help='Overwrite values if they are there already', dest="overwrite", action="store_true")
     subparser.add_argument('-s', help='Sort times if needed?', dest="sort", action="store_true")
     subparser.add_argument('-v', type=str, help='Variable name in forecast files', dest="variable", required=True)
@@ -34,6 +35,7 @@ def add_subparser(parser):
 
 def run(parser, argv=sys.argv[1:]):
     args = parser.parse_args(argv)
+    aggregator = get_aggregator(args.aggregator)
 
     if not os.path.exists(args.verif_file):
         met2verif.util.error("File '%s' does not exist" % args.verif_file)
@@ -82,32 +84,40 @@ def run(parser, argv=sys.argv[1:]):
         else:
             print "Adding new intialization times:\n    " + '\n    '.join([met2verif.util.unixtime_to_str(t) for t in times_add])
 
+    thresholds_orig = list()
+    quantiles_orig = list()
+    if "threshold" in file.variables:
+        thresholds_orig = file.variables["threshold"]
+    if "quantile" in file.variables:
+        quantiles_orig = file.variables["quantile"]
+
     fcst = np.nan * np.zeros([len(times_new), len(leadtimes_orig), len(ids_orig)])
+    tfcst = np.nan * np.zeros([len(times_new), len(leadtimes_orig), len(ids_orig), len(thresholds_orig)])
+    qfcst = np.nan * np.zeros([len(times_new), len(leadtimes_orig), len(ids_orig), len(quantiles_orig)])
+    pit = np.nan * np.zeros([len(times_new), len(leadtimes_orig), len(ids_orig)])
     if len(times_orig) > 0 and not args.clear:
         fcst[range(len(times_orig)), :, :] = file.variables[args.ovariable][:]
         # Convert fill values to nan
         fcst[fcst == netCDF4.default_fillvals['f4']] = np.nan
 
-    if args.sort:
-        Itimes = np.argsort(times_new)
-        if (Itimes != range(len(times_new))).any():
-            if args.debug:
-                print "Sorting times to be in ascending order"
-            times_new = times_new[Itimes]
-            fcst = fcst[Itimes, :, :]
-            file.variables["obs"][:] = file.variables["obs"][Itimes, :, :]
+        if len(thresholds_orig) > 0:
+            tfcst[range(len(times_orig)), :, :, :] = file.variables['cdf'][:]
+            tfcst[tfcst == netCDF4.default_fillvals['f4']] = np.nan
+        if len(quantiles_orig) > 0:
+            qfcst[range(len(times_orig)), :, :, :] = file.variables['x'][:]
+            qfcst[qfcst == netCDF4.default_fillvals['f4']] = np.nan
 
     file.variables["time"][:] = times_new
     lats_orig = file.variables["lat"][:]
     lons_orig = file.variables["lon"][:]
 
     for Iinput, input in enumerate(inputs):
-        # print "Processing %s" % input.filename
+        print "Processing %s" % input.filename
         if args.debug:
             step = max(1, len(inputs) / 100)
             frac = float(Iinput) / len(inputs)
-            if Iinput % step == 0:
-                met2verif.util.progress_bar(frac, 80)
+            #if Iinput % step == 0:
+            #                met2verif.util.progress_bar(frac, 80)
         try:
             leadtimes = input.leadtimes
 
@@ -139,7 +149,12 @@ def run(parser, argv=sys.argv[1:]):
                                 curr_fcst[1:, :] = np.diff(curr_fcst, axis=0)
                                 curr_fcst[0, :] = np.nan
 
-                    fcst[Itime, Ilt_verif, :] = curr_fcst[Ilt_fcst, :] * args.multiply + args.add
+
+                    fcst[Itime, Ilt_verif, :] = aggregator(curr_fcst[Ilt_fcst, :, :] * args.multiply + args.add, axis=2)
+                    for i in range(len(thresholds_orig)):
+                        tfcst[Itime, Ilt_verif, :, i] = np.mean(curr_fcst[Ilt_fcst, :, :] * args.multiply + args.add < thresholds_orig[i], axis=2)
+                    for i in range(len(quantiles_orig)):
+                        qfcst[Itime, Ilt_verif, :, i] = np.percentile(curr_fcst[Ilt_fcst, :, :] * args.multiply + args.add, quantiles_orig[i] * 100, axis=2)
                 elif args.debug:
                     print "We do not need to read this file"
             file.sync()
@@ -151,4 +166,23 @@ def run(parser, argv=sys.argv[1:]):
     # Convert nans back to fill value
     fcst[np.isnan(fcst)] = netCDF4.default_fillvals['f4']
     file.variables[args.ovariable][:] = fcst
+    if len(thresholds_orig) > 0:
+        tfcst[np.isnan(tfcst)] = netCDF4.default_fillvals['f4']
+        file.variables['cdf'][:] = tfcst
+    if len(quantiles_orig) > 0:
+        qfcst[np.isnan(qfcst)] = netCDF4.default_fillvals['f4']
+        file.variables['x'][:] = qfcst
     file.close()
+
+
+def get_aggregator(string):
+    if string == "mean":
+        return np.mean
+    elif string == "median":
+        return np.median
+    elif string == "min":
+        return np.min
+    elif string == "max":
+        return np.max
+    else:
+        met2verif.util.error("Could not understand aggregator '%s'" % string)
