@@ -72,6 +72,7 @@ class Netcdf(FcstInput):
             raise
         if len(self.file.variables["time"]) == 0:
             print("File '%s' does not have any times" % self.filename)
+            self.file.close()
             raise Exception
         self.times = self.file.variables["time"][:]
         self.variables = self.file.variables.keys()
