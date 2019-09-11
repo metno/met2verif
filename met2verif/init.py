@@ -22,6 +22,8 @@ def add_subparser(parser):
     subparser.add_argument('-q', type=met2verif.util.parse_numbers, help='Quantiles', dest="quantiles")
     subparser.add_argument('-t', type=met2verif.util.parse_numbers, help='Thresholds', dest="thresholds")
     subparser.add_argument('--debug', help='Display debug information', action="store_true")
+    subparser.add_argument('-x0', type=float, help='Lower boundary within discrete mass (e.g. 0 for precip)')
+    subparser.add_argument('-x1', type=float, help='Upper boundary within discrete mass (e.g. 100 for RH)')
 
     return subparser
 
@@ -69,7 +71,11 @@ def run(parser, argv=sys.argv[1:]):
     else:
         file.standard_name = "Unknown"
     if args.units:
-        file.units = unit = args.units
+        file.units = args.units
+    if args.x0:
+        file.x0 = args.x0
+    if args.x1:
+        file.x1 = args.x1
 
     L = len(locations)
     lats = np.zeros(L, 'float')
