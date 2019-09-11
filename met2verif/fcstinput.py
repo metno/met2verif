@@ -75,16 +75,36 @@ class Netcdf(FcstInput):
             self.file.close()
             raise Exception
         self.times = self.file.variables["time"][:]
+        self.times = self.convert_times(self.times, self.file.variables["time"])
         self.variables = self.file.variables.keys()
 
         if "forecast_reference_time" in self.file.variables:
             self.forecast_reference_time = np.ma.filled(self.file.variables["forecast_reference_time"][:], fill_value=np.nan)
+            self.forecast_reference_time = self.convert_times(self.forecast_reference_time, self.file.variables["forecast_reference_time"])
         else:
             verif.util.warning("forecast_reference_time not found in '%s'. Using 'time' variable." % self.filename)
             self.forecast_reference_time = self.file["time"][0]
+            self.forecast_reference_time = self.convert_times(self.forecast_reference_time, self.file.variables["time"])
         self.leadtimes = (self.times - self.forecast_reference_time) / 3600
 
         self.file.close()
+
+    def convert_times(self, times, ncvar):
+        if hasattr(ncvar, "units"):
+            dates = netCDF4.num2date(times, units=ncvar.units)
+            if isinstance(dates, list) or isinstance(dates, np.ndarray):
+                times = np.array([int(d.strftime("%s")) for d in dates])
+            else:
+                times = int(dates.strftime("%s"))
+            return np.array(times)
+
+            # units = ncvar.units
+            #if units != "seconds since 1970-01-01 00:00:00 +00:00":
+
+            #else:
+            #    return times
+        else:
+            return times
 
     def extract(self, lats, lons, variable, members=[0], aggregator=np.nanmean):
         """
