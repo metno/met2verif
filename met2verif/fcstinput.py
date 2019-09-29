@@ -106,7 +106,7 @@ class Netcdf(FcstInput):
         else:
             return times
 
-    def extract(self, lats, lons, variable, members=[0]):
+    def extract(self, lats, lons, variable, members=[0], hood=0):
         """
         Extract forecasts from file for points. Outputs with dimensions (leadtime, location, ens)
 
@@ -115,14 +115,18 @@ class Netcdf(FcstInput):
             lons (np.array): Array of longitudes
             variable (str): Variable name
             members (list): Which ensemble members to use? If None, then use all
-            aggregator (function): What function to use to aggregate ensemble?
+            hood (int): Neighbourhood radius
         """
+        time_0 = time.time()
         file = netCDF4.Dataset(self.filename, 'r')
         if members is None:
             members = [0]
             if 'ensemble_member' in file.dimensions:
                 members = range(len(file.dimensions['ensemble_member']))
-        values = np.nan * np.zeros([len(self.leadtimes), len(lats), len(members)])
+        member_size = len(members)
+        if hood > 0:
+            member_size = member_size * ((hood*2+1)**2)
+        values = np.nan * np.zeros([len(self.leadtimes), len(lats), member_size])
         # Most time comes form this call:
         data = file.variables[variable][:]
         dims = file.variables[variable].dimensions
@@ -131,7 +135,6 @@ class Netcdf(FcstInput):
         xvar, yvar = self.get_xy()
         has_x = xvar is not None
         has_y = yvar is not None
-        s_time = time.time()
         assert(has_time)
         X = 1
         I_time = dims.index("time")
@@ -156,7 +159,10 @@ class Netcdf(FcstInput):
 
         # Subset by ensemble members
         if has_ens:
-            if members is not None:
+            num_members_in_file = data.shape[I_ens]
+            if np.max(members) >= num_members_in_file:
+                raise Exception("Cannot extract member %d from a %d member ensemble" % (np.max(members), num_members_in_file))
+            if members is not None and num_members_in_file > len(members):
                 Im = members
                 if I_ens == 0:
                     data = data[Im, ...]
@@ -176,7 +182,6 @@ class Netcdf(FcstInput):
         except Exception:
             pass
 
-        s = time.time()
         if has_ens:
             data = np.moveaxis(data, [I_time, I_y, I_x, I_ens], [0, 1, 2, 3])
             if len(data.shape) == 5:
@@ -186,16 +191,25 @@ class Netcdf(FcstInput):
                 data = np.moveaxis(data, [I_time, I_y, I_x], [0, 1, 2])
             if len(data.shape) == 4:
                 data = data[:, :, :, 0]
-            else:
-                data.expand_dims(3)
-        print "Rearrange %.1f" % (time.time() - s)
+            data = np.expand_dims(data, 3)
 
         I, J = self.get_i_j(lats, lons)
         # print I, J
         Ivalid = np.where((I >= 0) & (J >= 0))[0]
-        for i in range(len(self.leadtimes)):
-            values[i, Ivalid, :] = data[i, I[Ivalid], J[Ivalid], :]
-        print "Getting values %.2f seconds" % (time.time() - s_time)
+        for lt in range(len(self.leadtimes)):
+            if hood == 0:
+                values[lt, Ivalid, :] = data[lt, I[Ivalid], J[Ivalid], :]
+            else:
+                h = 0
+                for i in range(-hood, hood+1):
+                    for j in range(-hood, hood+1):
+                        Iens = range(len(members) * h, len(members) * (h+1))
+                        II = [I[iv] + i for iv in Ivalid]
+                        JJ = [J[iv] + j for iv in Ivalid]
+                        for e in range(len(Iens)):
+                            values[lt, Ivalid, Iens[e]] = data[lt, II, JJ, e]
+                        h += 1
+        print "Getting values %.2f" % (time.time() - time_0)
 
         file.close()
         return values

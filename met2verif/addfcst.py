@@ -4,6 +4,7 @@ import netCDF4
 import numpy as np
 import os
 import sys
+import time
 import traceback
 import met2verif.fcstinput
 import met2verif.locinput
@@ -22,6 +23,7 @@ def add_subparser(parser):
     subparser.add_argument('-a', default="mean", help='Aggregator for computing fcst', dest="aggregator", choices=["mean", "median", "min", "max"])
     subparser.add_argument('-f', help='Overwrite values if they are there already', dest="overwrite", action="store_true")
     subparser.add_argument('-s', help='Sort times if needed?', dest="sort", action="store_true")
+    subparser.add_argument('-n', default=0, type=int, help='Neighbourhood radius', dest="hood")
     subparser.add_argument('-v', type=str, help='Variable name in forecast files', dest="variable", required=True)
     subparser.add_argument('-vo', default="fcst", type=str, help='Variable name in verif file', dest="ovariable")
     subparser.add_argument('--windspeed', help='Compute wind speed?', action="store_true")
@@ -112,6 +114,7 @@ def run(parser, argv=sys.argv[1:]):
     lons_orig = file.variables["lon"][:]
 
     for Iinput, input in enumerate(inputs):
+        time_s = time.time()
         print "Processing %s" % input.filename
         if args.debug:
             step = max(1, len(inputs) / 100)
@@ -140,17 +143,24 @@ def run(parser, argv=sys.argv[1:]):
                                 met2verif.util.error("-v must be x_variable_name,y_variable_name")
                             xvariable = variables[0]
                             yvariable = variables[1]
-                            curr_x = input.extract(lats_orig, lons_orig, xvariable, args.members)
-                            curr_y = input.extract(lats_orig, lons_orig, yvariable, args.members)
+                            curr_x = input.extract(lats_orig, lons_orig, xvariable, args.members, args.hood)
+                            curr_y = input.extract(lats_orig, lons_orig, yvariable, args.members, args.hood)
                             curr_fcst = np.sqrt(curr_x ** 2 + curr_y ** 2)
                         else:
-                            curr_fcst = input.extract(lats_orig, lons_orig, args.variable, args.members)
-                            if args.deacc:
-                                curr_fcst[1:, :] = np.diff(curr_fcst, axis=0)
-                                curr_fcst[0, :] = np.nan
+                            curr_fcst = input.extract(lats_orig, lons_orig, args.variable, args.members, args.hood)
 
+                        if args.deacc:
+                            # Extract leadtimes first, and then deaccumulate, otherwise the wrong
+                            # aggregation time period is retrieved
+                            curr_fcst = curr_fcst[Ilt_fcst, :, :]
+                            if np.sum(np.isnan(curr_fcst[0, ...])) > 0:
+                                if args.debug:
+                                    print("Deaccumulating. Missing values in first timestep, setting them to 0")
+                                curr_fcst[0, ...] = 0
+                            curr_fcst[1:, ...] = np.diff(curr_fcst, axis=0)
+                            curr_fcst[0, ...] = np.nan
 
-                    fcst[Itime, Ilt_verif, :] = aggregator(curr_fcst[Ilt_fcst, :, :] * args.multiply + args.add, axis=2)
+                    fcst[Itime, Ilt_verif, :] = aggregator(curr_fcst * args.multiply + args.add, axis=2)
                     for i in range(len(thresholds_orig)):
                         # The inequality operator does not respect nans (returns 0 instead)
                         temp = np.zeros(curr_fcst.shape, float)
@@ -158,10 +168,21 @@ def run(parser, argv=sys.argv[1:]):
                         temp[np.isnan(curr_fcst)] = np.nan
                         tfcst[Itime, Ilt_verif, :, i] = np.nanmean(temp, axis=2)
                     for i in range(len(quantiles_orig)):
-                        qfcst[Itime, Ilt_verif, :, i] = np.percentile(curr_fcst[Ilt_fcst, :, :] * args.multiply + args.add, quantiles_orig[i] * 100, axis=2)
+                        # Avoid using nanpercentile, if possible, since it is much slower
+                        num_missing = np.sum(np.isnan(curr_fcst))
+                        if num_missing == 0:
+                            qfcst[Itime, Ilt_verif, :, i] = np.percentile(curr_fcst * args.multiply + args.add, quantiles_orig[i] * 100, axis=2)
+                        else:
+                            qfcst[Itime, Ilt_verif, :, i] = np.nanpercentile(curr_fcst * args.multiply + args.add, quantiles_orig[i] * 100, axis=2)
                 elif args.debug:
                     print "We do not need to read this file"
+            file.variables[args.ovariable][:] = fcst
+            if len(thresholds_orig) > 0:
+                file.variables['cdf'][:] = tfcst
+            if len(quantiles_orig) > 0:
+                file.variables['x'][:] = qfcst
             file.sync()
+            # print "%.1f s" % (time.time() - time_s)
         except Exception as e:
             print "Could not process: %s" % e
             if args.debug:
@@ -181,12 +202,12 @@ def run(parser, argv=sys.argv[1:]):
 
 def get_aggregator(string):
     if string == "mean":
-        return np.mean
+        return np.nanmean
     elif string == "median":
-        return np.median
+        return np.nanmedian
     elif string == "min":
-        return np.min
+        return np.nanmin
     elif string == "max":
-        return np.max
+        return np.nanmax
     else:
         met2verif.util.error("Could not understand aggregator '%s'" % string)
