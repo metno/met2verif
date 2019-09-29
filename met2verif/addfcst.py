@@ -152,7 +152,11 @@ def run(parser, argv=sys.argv[1:]):
 
                     fcst[Itime, Ilt_verif, :] = aggregator(curr_fcst[Ilt_fcst, :, :] * args.multiply + args.add, axis=2)
                     for i in range(len(thresholds_orig)):
-                        tfcst[Itime, Ilt_verif, :, i] = np.mean(curr_fcst[Ilt_fcst, :, :] * args.multiply + args.add < thresholds_orig[i], axis=2)
+                        # The inequality operator does not respect nans (returns 0 instead)
+                        temp = np.zeros(curr_fcst.shape, float)
+                        temp[:] = curr_fcst * args.multiply + args.add < thresholds_orig[i]
+                        temp[np.isnan(curr_fcst)] = np.nan
+                        tfcst[Itime, Ilt_verif, :, i] = np.nanmean(temp, axis=2)
                     for i in range(len(quantiles_orig)):
                         qfcst[Itime, Ilt_verif, :, i] = np.percentile(curr_fcst[Ilt_fcst, :, :] * args.multiply + args.add, quantiles_orig[i] * 100, axis=2)
                 elif args.debug:
