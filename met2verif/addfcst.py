@@ -31,6 +31,7 @@ def add_subparser(parser):
     subparser.add_argument('--multiply', type=float, default=1, help='Multiply all forecasts with this value')
     subparser.add_argument('--debug', help='Display debug information', action="store_true")
     subparser.add_argument('--deacc', help='Deaccumulate values in time', action="store_true")
+    subparser.add_argument('--agg', help='Aggregate values between extracted timesteps', action="store_true")
 
     return subparser
 
@@ -157,6 +158,12 @@ def run(parser, argv=sys.argv[1:]):
                                 if args.debug:
                                     print("Deaccumulating. Missing values in first timestep, setting them to 0")
                                 curr_fcst[0, ...] = 0
+                            curr_fcst[1:, ...] = np.diff(curr_fcst, axis=0)
+                            curr_fcst[0, ...] = np.nan
+                        elif args.agg:
+                            # Aggregate values between extracted timesteps
+                            curr_fcst = np.cumsum(curr_fcst, axis=0)
+                            curr_fcst = curr_fcst[Ilt_fcst, :, :]
                             curr_fcst[1:, ...] = np.diff(curr_fcst, axis=0)
                             curr_fcst[0, ...] = np.nan
 
