@@ -328,5 +328,8 @@ class Netcdf(FcstInput):
         elif "X" in file.variables and "Y" in file.variables:
             xvar = "X"
             yvar = "Y"
+        elif "Xc" in file.variables and "Yc" in file.variables:
+            xvar = "Xc"
+            yvar = "Yc"
         file.close()
         return xvar, yvar
