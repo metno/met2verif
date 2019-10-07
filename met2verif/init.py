@@ -20,6 +20,7 @@ def add_subparser(parser):
     subparser.add_argument('-s', help='Standard name', dest="standard_name")
     subparser.add_argument('-u', help='Units', dest="units")
     subparser.add_argument('-q', type=met2verif.util.parse_numbers, help='Quantiles', dest="quantiles")
+    subparser.add_argument('-e', default=0, type=int, help='Number of ensemble members', dest="members")
     subparser.add_argument('-t', type=met2verif.util.parse_numbers, help='Thresholds', dest="thresholds")
     subparser.add_argument('-x0', type=float, help='Lower boundary within discrete mass (e.g. 0 for precip)')
     subparser.add_argument('-x1', type=float, help='Upper boundary within discrete mass (e.g. 100 for RH)')
@@ -45,6 +46,8 @@ def run(parser, argv=sys.argv[1:]):
         file.createDimension("quantile", len(args.quantiles))
     if args.thresholds is not None:
         file.createDimension("threshold", len(args.thresholds))
+    if args.members > 0:
+        file.createDimension("ensemble_member", args.member)
 
     vTime = file.createVariable("time", "i4", ("time",))
     vOffset = file.createVariable("leadtime", "f4", ("leadtime",))
@@ -64,6 +67,8 @@ def run(parser, argv=sys.argv[1:]):
         var = file.createVariable("threshold", "f4", ["threshold"])
         var[:] = args.thresholds
         var = file.createVariable("cdf", "f4", ("time", "leadtime", "location", "threshold"))
+    if args.members > 0:
+        var = file.createVariable("ensemble", "f4", ("time", "leadtime", "location", "ensemble_member"))
 
     """ Attributes """
     if args.standard_name:

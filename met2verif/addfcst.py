@@ -93,10 +93,15 @@ def run(parser, argv=sys.argv[1:]):
         thresholds_orig = file.variables["threshold"]
     if "quantile" in file.variables:
         quantiles_orig = file.variables["quantile"]
+    num_members = 0
+    if "ensemble" in file.variables:
+        ensemble_orig = file.variables["ensemble"]
+        num_members = ensemble_orig.shape[3]
 
     fcst = np.nan * np.zeros([len(times_new), len(leadtimes_orig), len(ids_orig)])
     tfcst = np.nan * np.zeros([len(times_new), len(leadtimes_orig), len(ids_orig), len(thresholds_orig)])
     qfcst = np.nan * np.zeros([len(times_new), len(leadtimes_orig), len(ids_orig), len(quantiles_orig)])
+    efcst = np.nan * np.zeros([len(times_new), len(leadtimes_orig), len(ids_orig), num_members])
     pit = np.nan * np.zeros([len(times_new), len(leadtimes_orig), len(ids_orig)])
     if len(times_orig) > 0 and not args.clear:
         fcst[range(len(times_orig)), :, :] = file.variables[args.ovariable][:]
@@ -109,6 +114,9 @@ def run(parser, argv=sys.argv[1:]):
         if len(quantiles_orig) > 0:
             qfcst[range(len(times_orig)), :, :, :] = file.variables['x'][:]
             qfcst[qfcst == netCDF4.default_fillvals['f4']] = np.nan
+        if num_members > 0:
+            efcst[range(len(times_orig)), :, :, :] = file.variables['ensemble'][:]
+            efcst[efcst == netCDF4.default_fillvals['f4']] = np.nan
 
     file.variables["time"][:] = times_new
     lats_orig = file.variables["lat"][:]
@@ -183,6 +191,11 @@ def run(parser, argv=sys.argv[1:]):
                             qfcst[Itime, Ilt_verif, :, i] = np.percentile(curr_fcst * args.multiply + args.add, quantiles_orig[i] * 100, axis=2)
                         else:
                             qfcst[Itime, Ilt_verif, :, i] = np.nanpercentile(curr_fcst * args.multiply + args.add, quantiles_orig[i] * 100, axis=2)
+                    if num_members > 0:
+                        if curr_fcst.shape[2] != num_members:
+                            met2verif.util.error("Number of members in file (%d) does not equal number in verif file (%d)" % (curr_fcst.shape[2], num_members))
+                        efcst[Itime, Ilt_verif, :, :] = curr_fcst * args.multiply + args.add
+
                 elif args.debug:
                     print "We do not need to read this file"
             file.variables[args.ovariable][:] = fcst
@@ -206,6 +219,9 @@ def run(parser, argv=sys.argv[1:]):
     if len(quantiles_orig) > 0:
         qfcst[np.isnan(qfcst)] = netCDF4.default_fillvals['f4']
         file.variables['x'][:] = qfcst
+    if num_members > 0:
+        efcst[np.isnan(efcst)] = netCDF4.default_fillvals['f4']
+        file.variables['ensemble'][:] = efcst
     file.close()
 
 
