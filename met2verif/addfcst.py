@@ -166,6 +166,8 @@ def run(parser, argv=sys.argv[1:]):
                             curr_fcst = curr_fcst[Ilt_fcst, :, :]
                             curr_fcst[1:, ...] = np.diff(curr_fcst, axis=0)
                             curr_fcst[0, ...] = np.nan
+                        else:
+                            curr_fcst = curr_fcst[Ilt_fcst, :, :]
 
                     fcst[Itime, Ilt_verif, :] = aggregator(curr_fcst * args.multiply + args.add, axis=2)
                     for i in range(len(thresholds_orig)):
