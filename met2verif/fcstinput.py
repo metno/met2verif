@@ -285,8 +285,8 @@ class Netcdf(FcstInput):
                 Iy = np.argsort(y)
                 IIx = np.argsort(Ix)
                 IIy = np.argsort(Iy)
-                J = [IIx[int(xxx)] for xxx in np.round(np.interp(xx, x[Ix], range(len(x)), -1, -1))]
-                I = [IIy[int(yyy)] for yyy in np.round(np.interp(yy, y[Iy], range(len(y)), -1, -1))]
+                J = [IIx[int(xxx)] for xxx in np.round(np.interp(xx, x[Ix], range(len(x)), 0, len(x) - 1))]
+                I = [IIy[int(yyy)] for yyy in np.round(np.interp(yy, y[Iy], range(len(y)), 0, len(y) - 1))]
         if proj is None:
             print "Could not find projection. Computing nearest neighbour from lat/lon."
             # Find lat and lons
