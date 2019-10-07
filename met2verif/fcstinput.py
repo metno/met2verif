@@ -187,8 +187,7 @@ class Netcdf(FcstInput):
             if len(data.shape) == 5:
                 data = data[:, :, :, :, 0]
         else:
-            if I_time != 0:
-                data = np.moveaxis(data, [I_time, I_y, I_x], [0, 1, 2])
+            data = np.moveaxis(data, [I_time, I_y, I_x], [0, 1, 2])
             if len(data.shape) == 4:
                 data = data[:, :, :, 0]
             data = np.expand_dims(data, 3)
