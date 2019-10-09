@@ -107,19 +107,22 @@ def run(parser, argv=sys.argv[1:]):
                     reference_time = data[i]['referenceTime']
                     date = reference_time[0:4] + reference_time[5:7] + reference_time[8:10]
                     hour = reference_time[11:13]
-                    sourceId = str(data[i]['sourceId'])
-                    id = sourceId.split(':')[0].replace('SN', '')
-                    for o in data[i]['observations']:
-                        element = o['elementId']
-                        I = variables.index(element)
-                        value = o['value']
-                        if value == "":
-                            value = -999
-                        values[I] = value
-                    ofile.write("%s;%s;%s" % (id, date, hour))
-                    for i in range(len(variables)):
-                        ofile.write(";%.3f" % values[i])
-                    ofile.write("\n")
+                    minute = int(reference_time[14:16])
+                    second = int(reference_time[17:19])
+                    if minute == 0 and second == 0:
+                        sourceId = str(data[i]['sourceId'])
+                        id = sourceId.split(':')[0].replace('SN', '')
+                        for o in data[i]['observations']:
+                            element = o['elementId']
+                            I = variables.index(element)
+                            value = o['value']
+                            if value == "":
+                                value = -999
+                            values[I] = value
+                        ofile.write("%s;%s;%s" % (id, date, hour))
+                        for i in range(len(variables)):
+                            ofile.write(";%.3f" % values[i])
+                        ofile.write("\n")
             elif r.status_code == 404:
                  print('STATUS: No data was found for the list of query Ids.')
             else:
