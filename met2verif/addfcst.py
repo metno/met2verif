@@ -26,12 +26,12 @@ def add_subparser(parser):
     subparser.add_argument('-n', default=0, type=int, help='Neighbourhood radius', dest="hood")
     subparser.add_argument('-v', type=str, help='Variable name in forecast files', dest="variable", required=True)
     subparser.add_argument('-vo', default="fcst", type=str, help='Variable name in verif file', dest="ovariable")
+    subparser.add_argument('-w', default=None, type=int, help='Time aggregation window in number of timesteps of input file', dest="time_window")
     subparser.add_argument('--windspeed', help='Compute wind speed?', action="store_true")
     subparser.add_argument('--add', type=float, default=0, help='Add this value to all forecasts (--multiply is done before --add)')
     subparser.add_argument('--multiply', type=float, default=1, help='Multiply all forecasts with this value')
     subparser.add_argument('--debug', help='Display debug information', action="store_true")
     subparser.add_argument('--deacc', help='Deaccumulate values in time', action="store_true")
-    subparser.add_argument('--agg', help='Aggregate values between extracted timesteps', action="store_true")
 
     return subparser
 
@@ -159,23 +159,33 @@ def run(parser, argv=sys.argv[1:]):
                             curr_fcst = input.extract(lats_orig, lons_orig, args.variable, args.members, args.hood)
 
                         if args.deacc:
-                            # Extract leadtimes first, and then deaccumulate, otherwise the wrong
-                            # aggregation time period is retrieved
-                            curr_fcst = curr_fcst[Ilt_fcst, :, :]
-                            if np.sum(np.isnan(curr_fcst[0, ...])) > 0:
-                                if args.debug:
-                                    print("Deaccumulating. Missing values in first timestep, setting them to 0")
-                                curr_fcst[0, ...] = 0
-                            curr_fcst[1:, ...] = np.diff(curr_fcst, axis=0)
-                            curr_fcst[0, ...] = np.nan
-                        elif args.agg:
-                            # Aggregate values between extracted timesteps
-                            curr_fcst = np.cumsum(curr_fcst, axis=0)
-                            curr_fcst = curr_fcst[Ilt_fcst, :, :]
-                            curr_fcst[1:, ...] = np.diff(curr_fcst, axis=0)
-                            curr_fcst[0, ...] = np.nan
+                            if args.time_window is None:
+                                """
+                                Deaccumulate, and don't make any time window assumptions. This means
+                                that the timewindow will default to whatever the output leadtime
+                                interval is.  Extract leadtimes first, and then deaccumulate, otherwise
+                                the wrong aggregation time period is retrieved.
+                                """
+                                curr_fcst = curr_fcst[Ilt_fcst, :, :]
+                                if np.sum(np.isnan(curr_fcst[0, ...])) > 0:
+                                    if args.debug:
+                                        print("Deaccumulating. Missing values in first timestep, setting them to 0")
+                                    curr_fcst[0, ...] = 0
+                                curr_fcst[1:, ...] = np.diff(curr_fcst, axis=0)
+                                curr_fcst[0, ...] = np.nan
+                            else:
+                                assert(args.time_window > 0)
+                                curr_fcst[args.time_window:, ...] = curr_fcst[args.time_window:, ...] - curr_fcst[0:-args.time_window, ...]
+                                curr_fcst[0:args.time_window, ...] = np.nan
+                                curr_fcst = curr_fcst[Ilt_fcst, :, :]
                         else:
-                            curr_fcst = curr_fcst[Ilt_fcst, :, :]
+                            if args.time_window is None:
+                                curr_fcst = curr_fcst[Ilt_fcst, :, :]
+                            else:
+                                curr_fcst = np.cumsum(curr_fcst, axis=0)
+                                curr_fcst[args.time_window:, ...] = curr_fcst[args.time_window:, ...] - curr_fcst[0:-args.time_window, ...]
+                                curr_fcst[0:args.time_window, ...] = np.nan
+                                curr_fcst = curr_fcst[Ilt_fcst, :, :]
 
                     fcst[Itime, Ilt_verif, :] = aggregator(curr_fcst * args.multiply + args.add, axis=2)
                     for i in range(len(thresholds_orig)):
