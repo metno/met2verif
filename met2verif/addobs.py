@@ -100,7 +100,15 @@ def run(parser, argv=sys.argv[1:]):
 
     """
     Place each new observation into the appropriate time and leadtime slots
+
+    Use a precomputed dictionary to speed of the time it takes to lookup which
+    indices correspond to a particular time.
     """
+    map_time = dict()
+    for curr_valid_time in np.unique(data["times"]):
+        II = np.where(valid_times == curr_valid_time)
+        map_time[curr_valid_time] = II
+
     for i, id in enumerate(new_ids):
         if args.debug:
             step = len(new_ids) / 100
@@ -112,12 +120,10 @@ def run(parser, argv=sys.argv[1:]):
         Iloc = np.where(ids_orig == id)[0][0]
         curr_valid_times = data["times"][I]
         curr_obs = data["obs"][I]
+
         for j in range(len(curr_obs)):
             curr_valid_time = curr_valid_times[j]
-            II = np.where(valid_times == curr_valid_time)
-            # Slow
-            # for k in range(len(II[0])):
-            #     file.variables["obs"][II[0][k], II[1][k], Iloc] = curr_obs[j]
+            II = map_time[curr_valid_time]
             if len(II[0]) > 0:
                 value = curr_obs[j]
                 if curr_obs[j] not in [-999, 99999]:
