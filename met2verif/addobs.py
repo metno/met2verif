@@ -51,10 +51,13 @@ def run(parser, argv=sys.argv[1:]):
     """
     data = {"times": np.zeros(0, int), "ids": np.zeros(0, int), "obs": np.zeros(0)}
     for filename in args.files:
-        input = met2verif.obsinput.get(filename)
-        curr_data = input.read(args.variable)
-        for key in data:
-            data[key] = np.append(data[key], curr_data[key])
+        try:
+            input = met2verif.obsinput.get(filename)
+            curr_data = input.read(args.variable)
+            for key in data:
+                data[key] = np.append(data[key], curr_data[key])
+        except Exception as e:
+            print("Could not load file %s" % filename)
 
     """
     Read the existing observation data and expand array to allow for the new times
