@@ -265,11 +265,11 @@ class Netcdf(FcstInput):
         file = netCDF4.Dataset(self.filename, 'r')
         proj = None
         N = len(lats)
-        I = list()
-        J = list()
         xvar, yvar = self.get_xy()
 
         if xvar is not None and yvar is not None:
+            I = list()
+            J = list()
             x = file.variables[xvar][:]
             y = file.variables[yvar][:]
             for v in file.variables:
@@ -287,6 +287,8 @@ class Netcdf(FcstInput):
                 J = [IIx[int(xxx)] for xxx in np.round(np.interp(xx, x[Ix], range(len(x)), 0, len(x) - 1))]
                 I = [IIy[int(yyy)] for yyy in np.round(np.interp(yy, y[Iy], range(len(y)), 0, len(y) - 1))]
         if proj is None:
+            I = list()
+            J = list()
             print "Could not find projection. Computing nearest neighbour from lat/lon."
             # Find lat and lons
             if "latitude" in file.variables:
