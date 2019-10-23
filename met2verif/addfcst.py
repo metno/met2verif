@@ -27,6 +27,7 @@ def add_subparser(parser):
     subparser.add_argument('-v', type=str, help='Variable name in forecast files', dest="variable", required=True)
     subparser.add_argument('-vo', default="fcst", type=str, help='Variable name in verif file', dest="ovariable")
     subparser.add_argument('-w', default=1, type=int, help='Time aggregation window in number of timesteps of input file', dest="time_window")
+    subparser.add_argument('-to', type=float, help='Output threshold or quantile', dest="othreshold")
     subparser.add_argument('--windspeed', help='Compute wind speed?', action="store_true")
     subparser.add_argument('--add', type=float, default=0, help='Add this value to all forecasts (--multiply is done before --add)')
     subparser.add_argument('--multiply', type=float, default=1, help='Multiply all forecasts with this value')
@@ -98,13 +99,33 @@ def run(parser, argv=sys.argv[1:]):
         ensemble_orig = file.variables["ensemble"]
         num_members = ensemble_orig.shape[3]
 
+    num_dims = len(file.variables[args.ovariable].shape)
+    is_threshold_field = num_dims == 4
+    if is_threshold_field:
+        if args.othreshold is not None:
+            if 'threshold' in file.variables[args.ovariable].dimensions:
+                thresholds = file.variables['threshold'][:]
+            elif 'quantile' in file.variables[args.ovariable].dimensions:
+                thresholds = file.variables['quantile'][:]
+            else:
+                met2verif.util.error("Variable '%s' does not have threshold or quantile dimension.")
+            Ithreshold = np.where(thresholds == args.othreshold)[0]
+            if len(Ithreshold) == 0:
+                met2verif.util.error("Variable '%s' does not have threshold '%f'." % (args.othreshold))
+            Ithreshold = Ithreshold[0]
+        else:
+            met2verif.util.error("Variable '%s' has 4 dimensions. You need to specify threshold '-to'." % (num_dims))
+
     fcst = np.nan * np.zeros([len(times_new), len(leadtimes_orig), len(ids_orig)])
     tfcst = np.nan * np.zeros([len(times_new), len(leadtimes_orig), len(ids_orig), len(thresholds_orig)])
     qfcst = np.nan * np.zeros([len(times_new), len(leadtimes_orig), len(ids_orig), len(quantiles_orig)])
     efcst = np.nan * np.zeros([len(times_new), len(leadtimes_orig), len(ids_orig), num_members])
     pit = np.nan * np.zeros([len(times_new), len(leadtimes_orig), len(ids_orig)])
     if len(times_orig) > 0 and not args.clear:
-        fcst[range(len(times_orig)), :, :] = file.variables[args.ovariable][:]
+        if is_threshold_field:
+            fcst[range(len(times_orig)), :, :] = file.variables[args.ovariable][:, :, :, Ithreshold]
+        else:
+            fcst[range(len(times_orig)), :, :] = file.variables[args.ovariable][:]
         # Convert fill values to nan
         fcst[fcst == netCDF4.default_fillvals['f4']] = np.nan
 
@@ -218,6 +239,10 @@ def run(parser, argv=sys.argv[1:]):
     if num_members > 0:
         efcst[np.isnan(efcst)] = netCDF4.default_fillvals['f4']
         file.variables['ensemble'][:] = efcst
+    if is_threshold_field:
+        file.variables[args.ovariable][:, :, :, Ithreshold] = fcst
+    else:
+        file.variables[args.ovariable][:] = fcst
     file.close()
 
 
