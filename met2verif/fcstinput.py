@@ -79,7 +79,8 @@ class Netcdf(FcstInput):
         self.variables = self.file.variables.keys()
 
         if "forecast_reference_time" in self.file.variables:
-            self.forecast_reference_time = np.ma.filled(self.file.variables["forecast_reference_time"][:], fill_value=np.nan)
+            self.forecast_reference_time = np.ma.filled(self.file.variables["forecast_reference_time"], fill_value=np.nan)
+            self.forecast_reference_time = float(self.forecast_reference_time)
             self.forecast_reference_time = self.convert_times(self.forecast_reference_time, self.file.variables["forecast_reference_time"])
         else:
             verif.util.warning("forecast_reference_time not found in '%s'. Using 'time' variable." % self.filename)
@@ -91,12 +92,12 @@ class Netcdf(FcstInput):
 
     def convert_times(self, times, ncvar):
         if hasattr(ncvar, "units"):
-            dates = netCDF4.num2date(times, units=ncvar.units)
-            if isinstance(dates, list) or isinstance(dates, np.ndarray):
-                times = np.array([int(d.strftime("%s")) for d in dates])
+            if isinstance(times, list) or isinstance(times, np.ndarray):
+                times = np.array([met2verif.util.convert_time(times[t], ncvar.units) for t in range(len(times))])
             else:
-                times = int(dates.strftime("%s"))
-            return np.array(times)
+                if not np.isnan(times):
+                    times = met2verif.util.convert_time(times, ncvar.units)
+            return times
 
             # units = ncvar.units
             #if units != "seconds since 1970-01-01 00:00:00 +00:00":

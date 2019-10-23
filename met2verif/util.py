@@ -8,10 +8,7 @@ import os
 import re
 import sys
 import textwrap
-try:
-    from netCDF4 import Dataset as netcdf
-except:
-    from scipy.io.netcdf import netcdf_file as netcdf
+import netCDF4
 
 import verif.interval
 
@@ -530,7 +527,7 @@ def almost_equal(value1, value2, tol=1e-7):
 def is_valid_nc(filename):
     """ Return True if the file is a valid NetCDF file """
     try:
-        file = netcdf(filename, 'r')
+        file = netCDF.Dataset(filename, 'r')
         file.close()
         return True
     except Exception:
@@ -597,3 +594,12 @@ def progress_bar(fraction, width, text=""):
     num_space = width - num_x - len(text) - 2
     sys.stdout.write("\r" + text + "[" + "X" * num_x + " " * num_space + "]")
     sys.stdout.flush()
+
+
+def convert_time(time, units):
+    date = netCDF4.num2date(time, units=units)
+    # This somehow doesn't work when the local timezone is not UTC
+    #unixtime = int(date.replace(tzinfo=pytz.UTC).strftime("%s"))
+    unixtime = int((date - datetime.datetime(1970, 1, 1, 0, 0)).total_seconds())
+
+    return unixtime
