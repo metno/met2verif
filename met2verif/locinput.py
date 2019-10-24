@@ -111,13 +111,13 @@ class Comps(LocInput):
                 lat = -999
                 lon = -999
                 elev = -999
-                for at in line:
-                    at = at.split('=')
-                    if(at[0] == "lat"):
-                        lat = float(at[1])
-                    elif(at[0] == "lon"):
-                        lon = float(at[1])
-                    elif(at[0] == "elev"):
-                        elev = float(at[1])
                 locations[id] = {"lat": lat, "lon": lon, "elev": elev}
+                for at in line:
+                    at = at.strip().split('=')
+                    if len(at) == 2:
+                        try:
+                            value = float(at[1])
+                        except Exception as e:
+                            value = at[1]
+                        locations[id][at[0]] = value
         return locations
