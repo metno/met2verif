@@ -156,6 +156,9 @@ class Netcdf(FcstInput):
         elif "latitude" in dims:
             I_y = dims.index("latitude")
             Y = file.variables[variable].shape[I_y]
+        elif "location" in dims:
+            I_y = dims.index("location")
+            Y = file.variables[variable].shape[I_y]
 
         # Subset by ensemble members
         if has_ens:
@@ -182,10 +185,17 @@ class Netcdf(FcstInput):
         except Exception:
             pass
 
+        """
+        Get the date into the format time, y, x, ensemble_member
+        """
         if has_ens:
             data = np.moveaxis(data, [I_time, I_y, I_x, I_ens], [0, 1, 2, 3])
             if len(data.shape) == 5:
                 data = data[:, :, :, :, 0]
+        elif I_x is None:
+            data = np.moveaxis(data, [I_time, I_y], [0, 1])
+            data = np.expand_dims(data, 2)
+            data = np.expand_dims(data, 3)
         else:
             data = np.moveaxis(data, [I_time, I_y, I_x], [0, 1, 2])
             if len(data.shape) == 4:
@@ -299,7 +309,7 @@ class Netcdf(FcstInput):
                 ilons = file.variables["lon"][:]
             else:
                 met2verif.util.error("Cannot determine latitude and longitude")
-            is_regular_grid = len(ilats.shape) == 1 and len(ilons.shape) == 1
+            is_regular_grid = len(ilats.shape) == 1 and len(ilons.shape) == 1 and xvar is not None and yvar is not None
             for i in range(N):
                 currlat = lats[i]
                 currlon = lons[i]
@@ -332,5 +342,8 @@ class Netcdf(FcstInput):
         elif "Xc" in file.variables and "Yc" in file.variables:
             xvar = "Xc"
             yvar = "Yc"
+        elif "location" in file.variables:
+            xvar = None
+            yvar = "location"
         file.close()
         return xvar, yvar
