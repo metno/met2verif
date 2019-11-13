@@ -70,6 +70,7 @@ class Netcdf(FcstInput):
         except Exception as e:
             print("Could not open file '%s'. %s." % (filename, e))
             raise
+
         if len(self.file.variables["time"]) == 0:
             print("File '%s' does not have any times" % self.filename)
             self.file.close()
@@ -220,44 +221,6 @@ class Netcdf(FcstInput):
                         h += 1
         print "Getting values %.2f" % (time.time() - time_0)
 
-        file.close()
-        return values
-
-    def extract_ens(self, lats, lons, variable):
-        """
-        time, x, y, ens
-        Arguments:
-            lats (np.array): Array of latitudes
-            lons (np.array): Array of longitudes
-            variable (str): Variable name
-        """
-        file = netCDF4.Dataset(self.filename, 'r')
-        data = file.variables[variable]
-        data = data[:].astype(float)
-        if(len(data.shape) == 4):
-            X = data.shape[2]
-            Y = data.shape[3]
-            data = np.moveaxis(data[:, :, :, :], 1, -1)
-        elif(len(data.shape) == 3):
-            X = data.shape[1]
-            Y = data.shape[2]
-        elif(len(data.shape) == 5):
-            X = data.shape[3]
-            Y = data.shape[4]
-            data = np.moveaxis(data[:, 0, :, :, :], 1, -1)
-            # data = np.mean(data, axis=2)
-        else:
-            met2verif.util.error("Input data has strange dimensions")
-        q = data.flat
-        I, J = self.get_i_j(lats, lons)
-        E = data.shape[3]
-        values = np.nan * np.zeros([len(self.leadtimes), len(lats), E])
-        Ivalid = np.where((I >= 0) & (J >= 0))[0]
-        for i in range(len(self.leadtimes)):
-            for e in range(E):
-                indices = np.array(i * X*Y*E + I[Ivalid]*Y*E + J[Ivalid]*E + e, 'int')
-                temp = q[indices]
-                values[i, Ivalid, e] = temp
         file.close()
         return values
 
