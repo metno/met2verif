@@ -47,6 +47,23 @@ def get_field(data, ml=0, member=None):
     return data
 
 
+def convert_times(times, ncvar):
+    if hasattr(ncvar, "units"):
+        if isinstance(times, list) or isinstance(times, np.ndarray):
+            times = np.array([met2verif.util.convert_time(times[t], ncvar.units) for t in range(len(times))])
+        else:
+            if not np.isnan(times):
+                times = met2verif.util.convert_time(times, ncvar.units)
+        return times
+
+        # units = ncvar.units
+        #if units != "seconds since 1970-01-01 00:00:00 +00:00":
+
+        #else:
+        #    return times
+    else:
+        return times
+
 class FcstInput(object):
     def read(self, variable):
         """
@@ -65,48 +82,34 @@ class FcstInput(object):
 class Netcdf(FcstInput):
     def __init__(self, filename, coord_guess=None):
         self.filename = filename
+        self.times = None
+        self.forecast_reference_time = None
+        self.leadtimes = None
         try:
-            self.file = netCDF4.Dataset(self.filename, 'r')
+            with netCDF4.Dataset(self.filename, 'r') as file:
+                if "time" in file.variables:
+                    if len(file.variables["time"]) > 0:
+                        self.times = file.variables["time"][:]
+                        self.times = convert_times(self.times, file.variables["time"])
+                    else:
+                        print("Warning: File '%s' does not have any times" % self.filename)
+                else:
+                    print("Warning: File '%s' does not have any times" % self.filename)
+                self.variables = file.variables.keys()
+
+                if "forecast_reference_time" in file.variables:
+                    self.forecast_reference_time = np.ma.filled(file.variables["forecast_reference_time"], fill_value=np.nan)
+                    self.forecast_reference_time = float(self.forecast_reference_time)
+                    self.forecast_reference_time = convert_times(self.forecast_reference_time, file.variables["forecast_reference_time"])
+                elif self.times is not None:
+                    verif.util.warning("forecast_reference_time not found in '%s'. Using 'time' variable." % self.filename)
+                    self.forecast_reference_time = self.times[0]
+                if self.times is not None:
+                    self.leadtimes = (self.times - self.forecast_reference_time) / 3600
         except Exception as e:
             print("Could not open file '%s'. %s." % (filename, e))
             raise
 
-        if len(self.file.variables["time"]) == 0:
-            print("File '%s' does not have any times" % self.filename)
-            self.file.close()
-            raise Exception
-        self.times = self.file.variables["time"][:]
-        self.times = self.convert_times(self.times, self.file.variables["time"])
-        self.variables = self.file.variables.keys()
-
-        if "forecast_reference_time" in self.file.variables:
-            self.forecast_reference_time = np.ma.filled(self.file.variables["forecast_reference_time"], fill_value=np.nan)
-            self.forecast_reference_time = float(self.forecast_reference_time)
-            self.forecast_reference_time = self.convert_times(self.forecast_reference_time, self.file.variables["forecast_reference_time"])
-        else:
-            verif.util.warning("forecast_reference_time not found in '%s'. Using 'time' variable." % self.filename)
-            self.forecast_reference_time = self.file["time"][0]
-            self.forecast_reference_time = self.convert_times(self.forecast_reference_time, self.file.variables["time"])
-        self.leadtimes = (self.times - self.forecast_reference_time) / 3600
-
-        self.file.close()
-
-    def convert_times(self, times, ncvar):
-        if hasattr(ncvar, "units"):
-            if isinstance(times, list) or isinstance(times, np.ndarray):
-                times = np.array([met2verif.util.convert_time(times[t], ncvar.units) for t in range(len(times))])
-            else:
-                if not np.isnan(times):
-                    times = met2verif.util.convert_time(times, ncvar.units)
-            return times
-
-            # units = ncvar.units
-            #if units != "seconds since 1970-01-01 00:00:00 +00:00":
-
-            #else:
-            #    return times
-        else:
-            return times
 
     def extract(self, lats, lons, variable, members=[0], hood=0):
         """
@@ -235,73 +238,70 @@ class Netcdf(FcstInput):
                 I (list): I indices, -1 if outside domain
                 J (list): J indices, -1 if outside domain
         """
-        file = netCDF4.Dataset(self.filename, 'r')
-        N = len(lats)
+        with netCDF4.Dataset(self.filename, 'r') as file:
+            Npoints = len(lats)
+            xvar, yvar = self.get_xy()
 
-        xvar, yvar = self.get_xy()
-
-        proj = None
-        is_regular_grid = False
-        for v in file.variables:
-            if hasattr(file.variables[v], "proj4"):
-                projection = str(file.variables[v].proj4)
-                proj = pyproj.Proj(projection)
-                print(projection)
-                if projection == "+proj=longlat +a=6367470 +e=0 +no_defs":
-                    is_regular_grid = True
-        I = list()
-        J = list()
-        if is_regular_grid:
-            if "latitude" in file.variables:
-                ilats = file.variables["latitude"][:]
-                ilons = file.variables["longitude"][:]
-            elif "lat" in file.variables:
-                ilats = file.variables["lat"][:]
-                ilons = file.variables["lon"][:]
-            else:
-                met2verif.util.error("Cannot determine latitude and longitude")
-            # TODO: This assumes that latitude is before longitude in the dimensions of a variable
-            for i in range(N):
-                currlat = lats[i]
-                currlon = lons[i]
-                I += [np.argmin(np.abs(currlat - ilats))]
-                J += [np.argmin(np.abs(currlon - ilons))]
-            print(I, J)
-        elif proj is not None and xvar is not None and yvar is not None:
-            x = file.variables[xvar][:]
-            y = file.variables[yvar][:]
-
-            # Project lat lon onto grid projection
-            xx, yy = proj(lons, lats)
-            Ix = np.argsort(x)
-            Iy = np.argsort(y)
-            IIx = np.argsort(Ix)
-            IIy = np.argsort(Iy)
-            J = [IIx[int(xxx)] for xxx in np.round(np.interp(xx, x[Ix], range(len(x)), 0, len(x) - 1))]
-            I = [IIy[int(yyy)] for yyy in np.round(np.interp(yy, y[Iy], range(len(y)), 0, len(y) - 1))]
-        else:
-            print "Could not find projection. Computing nearest neighbour from lat/lon."
-            # Find lat and lons
-            if "latitude" in file.variables:
-                ilats = file.variables["latitude"][:]
-                ilons = file.variables["longitude"][:]
-            elif "lat" in file.variables:
-                ilats = file.variables["lat"][:]
-                ilons = file.variables["lon"][:]
-            else:
-                met2verif.util.error("Cannot determine latitude and longitude")
-            for i in range(N):
-                currlat = lats[i]
-                currlon = lons[i]
-                dist = met2verif.util.distance(currlat, currlon, ilats, ilons)
-                indices = np.unravel_index(dist.argmin(), dist.shape)
-                I += [indices[0]]
-                if len(indices) == 2:
-                    J += [indices[1]]
+            proj = None
+            is_regular_grid = False
+            for v in file.variables:
+                if hasattr(file.variables[v], "proj4"):
+                    projection = str(file.variables[v].proj4)
+                    proj = pyproj.Proj(projection)
+                    print(projection)
+                    if projection == "+proj=longlat +a=6367470 +e=0 +no_defs":
+                        is_regular_grid = True
+            I = list()
+            J = list()
+            if is_regular_grid:
+                if "latitude" in file.variables:
+                    ilats = file.variables["latitude"][:]
+                    ilons = file.variables["longitude"][:]
+                elif "lat" in file.variables:
+                    ilats = file.variables["lat"][:]
+                    ilons = file.variables["lon"][:]
                 else:
-                    J += [0]
+                    met2verif.util.error("Cannot determine latitude and longitude")
+                # TODO: This assumes that latitude is before longitude in the dimensions of a variable
+                for i in range(Npoints):
+                    currlat = lats[i]
+                    currlon = lons[i]
+                    I += [np.argmin(np.abs(currlat - ilats))]
+                    J += [np.argmin(np.abs(currlon - ilons))]
+                print(I, J)
+            elif proj is not None and xvar is not None and yvar is not None:
+                x = file.variables[xvar][:]
+                y = file.variables[yvar][:]
 
-        file.close()
+                # Project lat lon onto grid projection
+                xx, yy = proj(lons, lats)
+                Ix = np.argsort(x)
+                Iy = np.argsort(y)
+                IIx = np.argsort(Ix)
+                IIy = np.argsort(Iy)
+                J = [IIx[int(xxx)] for xxx in np.round(np.interp(xx, x[Ix], range(len(x)), 0, len(x) - 1))]
+                I = [IIy[int(yyy)] for yyy in np.round(np.interp(yy, y[Iy], range(len(y)), 0, len(y) - 1))]
+            else:
+                print "Could not find projection. Computing nearest neighbour from lat/lon."
+                # Find lat and lons
+                if "latitude" in file.variables:
+                    ilats = file.variables["latitude"][:]
+                    ilons = file.variables["longitude"][:]
+                elif "lat" in file.variables:
+                    ilats = file.variables["lat"][:]
+                    ilons = file.variables["lon"][:]
+                else:
+                    met2verif.util.error("Cannot determine latitude and longitude")
+                for i in range(Npoints):
+                    currlat = lats[i]
+                    currlon = lons[i]
+                    dist = met2verif.util.distance(currlat, currlon, ilats, ilons)
+                    indices = np.unravel_index(dist.argmin(), dist.shape)
+                    I += [indices[0]]
+                    if len(indices) == 2:
+                        J += [indices[1]]
+                    else:
+                        J += [0]
         return np.array(I, int), np.array(J, int)
 
     def get_xy(self):
