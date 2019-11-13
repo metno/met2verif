@@ -129,7 +129,7 @@ class Netcdf(FcstInput):
             member_size = member_size * ((hood*2+1)**2)
         values = np.nan * np.zeros([len(self.leadtimes), len(lats), member_size])
         # Most time comes form this call:
-        data = file.variables[variable][:]
+        data = file.variables[variable]
         dims = file.variables[variable].dimensions
         has_ens = "ensemble_member" in dims
         has_time = "time" in dims
@@ -204,7 +204,6 @@ class Netcdf(FcstInput):
             data = np.expand_dims(data, 3)
 
         I, J = self.get_i_j(lats, lons)
-        # print I, J
         Ivalid = np.where((I >= 0) & (J >= 0))[0]
         for lt in range(len(self.leadtimes)):
             if hood == 0:
@@ -274,32 +273,50 @@ class Netcdf(FcstInput):
                 J (list): J indices, -1 if outside domain
         """
         file = netCDF4.Dataset(self.filename, 'r')
-        proj = None
         N = len(lats)
+
         xvar, yvar = self.get_xy()
 
-        if xvar is not None and yvar is not None:
-            I = list()
-            J = list()
+        proj = None
+        is_regular_grid = False
+        for v in file.variables:
+            if hasattr(file.variables[v], "proj4"):
+                projection = str(file.variables[v].proj4)
+                proj = pyproj.Proj(projection)
+                print(projection)
+                if projection == "+proj=longlat +a=6367470 +e=0 +no_defs":
+                    is_regular_grid = True
+        I = list()
+        J = list()
+        if is_regular_grid:
+            if "latitude" in file.variables:
+                ilats = file.variables["latitude"][:]
+                ilons = file.variables["longitude"][:]
+            elif "lat" in file.variables:
+                ilats = file.variables["lat"][:]
+                ilons = file.variables["lon"][:]
+            else:
+                met2verif.util.error("Cannot determine latitude and longitude")
+            # TODO: This assumes that latitude is before longitude in the dimensions of a variable
+            for i in range(N):
+                currlat = lats[i]
+                currlon = lons[i]
+                I += [np.argmin(np.abs(currlat - ilats))]
+                J += [np.argmin(np.abs(currlon - ilons))]
+            print(I, J)
+        elif proj is not None and xvar is not None and yvar is not None:
             x = file.variables[xvar][:]
             y = file.variables[yvar][:]
-            for v in file.variables:
-                if hasattr(file.variables[v], "proj4"):
-                    projection = str(file.variables[v].proj4)
-                    proj = pyproj.Proj(projection)
 
-            if proj is not None:
-                # Project lat lon onto grid projection
-                xx, yy = proj(lons, lats)
-                Ix = np.argsort(x)
-                Iy = np.argsort(y)
-                IIx = np.argsort(Ix)
-                IIy = np.argsort(Iy)
-                J = [IIx[int(xxx)] for xxx in np.round(np.interp(xx, x[Ix], range(len(x)), 0, len(x) - 1))]
-                I = [IIy[int(yyy)] for yyy in np.round(np.interp(yy, y[Iy], range(len(y)), 0, len(y) - 1))]
-        if proj is None:
-            I = list()
-            J = list()
+            # Project lat lon onto grid projection
+            xx, yy = proj(lons, lats)
+            Ix = np.argsort(x)
+            Iy = np.argsort(y)
+            IIx = np.argsort(Ix)
+            IIy = np.argsort(Iy)
+            J = [IIx[int(xxx)] for xxx in np.round(np.interp(xx, x[Ix], range(len(x)), 0, len(x) - 1))]
+            I = [IIy[int(yyy)] for yyy in np.round(np.interp(yy, y[Iy], range(len(y)), 0, len(y) - 1))]
+        else:
             print "Could not find projection. Computing nearest neighbour from lat/lon."
             # Find lat and lons
             if "latitude" in file.variables:
@@ -310,22 +327,16 @@ class Netcdf(FcstInput):
                 ilons = file.variables["lon"][:]
             else:
                 met2verif.util.error("Cannot determine latitude and longitude")
-            is_regular_grid = len(ilats.shape) == 1 and len(ilons.shape) == 1 and xvar is not None and yvar is not None
             for i in range(N):
                 currlat = lats[i]
                 currlon = lons[i]
-                if is_regular_grid:
-                    # TODO: This assumes that latitude is before longitude in the dimensions of a variable
-                    I += [np.argmin(np.abs(currlat - ilats))]
-                    J += [np.argmin(np.abs(currlon - ilons))]
+                dist = met2verif.util.distance(currlat, currlon, ilats, ilons)
+                indices = np.unravel_index(dist.argmin(), dist.shape)
+                I += [indices[0]]
+                if len(indices) == 2:
+                    J += [indices[1]]
                 else:
-                    dist = met2verif.util.distance(currlat, currlon, ilats, ilons)
-                    indices = np.unravel_index(dist.argmin(), dist.shape)
-                    I += [indices[0]]
-                    if len(indices) == 2:
-                        J += [indices[1]]
-                    else:
-                        J += [0]
+                    J += [0]
 
         file.close()
         return np.array(I, int), np.array(J, int)
@@ -343,8 +354,11 @@ class Netcdf(FcstInput):
         elif "Xc" in file.variables and "Yc" in file.variables:
             xvar = "Xc"
             yvar = "Yc"
-        elif "location" in file.variables:
-            xvar = None
-            yvar = "location"
+        elif "lat" in file.dimensions and "lon" in file.dimensions:
+            xvar = "lon"
+            yvar = "lat"
+        elif "latitude" in file.dimensions and "longitude" in file.dimensions:
+            xvar = "longitude"
+            yvar = "latitude"
         file.close()
         return xvar, yvar
