@@ -101,6 +101,22 @@ class AddFcstTest(unittest.TestCase):
         self.assertEqual(4, input.fcst[1, 0])
         self.assertEqual(8, input.fcst[1, 2])
 
+    def test_get_time_indices(self):
+        frt = met2verif.util.date_to_unixtime(20190101)
+        output_times = list()
+        for h in range(24):
+            output_times += [frt + 3600 * h]
+        delays = [3]
+        Itime, input, output = met2verif.addfcst.get_time_indices(np.array([0, 3, 6]), frt, np.array([0, 1, 2, 3, 4, 5, 6]), np.array(output_times), delays, False)
+        self.assertEqual(Itime, [3])
+        self.assertEqual(input, [[1, 2]])
+        self.assertEqual(output, [[0, 3]])
+
+        Itime, input, output = met2verif.addfcst.get_time_indices(np.array([0, 3, 6]), frt, np.array([0, 1, 2, 3, 4, 5, 6]), np.array(output_times), delays, True)
+        self.assertEqual(Itime, [3])
+        self.assertEqual(input, [[1, 1, 1, 2, 2, 2]])
+        self.assertEqual(output, [[0, 1, 2, 3, 4, 5, 6]])
+
 
 if __name__ == '__main__':
     unittest.main()

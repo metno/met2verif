@@ -167,6 +167,10 @@ def parse_ints(numbers):
     return [int(x) for x in parse_numbers(numbers)]
 
 
+def parse_dates(numbers):
+    return parse_numbers(numbers, True)
+
+
 def parse_numbers(numbers, is_date=False):
     """
     Parses numbers from an input string. Recognizes MATLAB syntax, such as:
