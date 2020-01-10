@@ -7,7 +7,7 @@ import os
 import re
 import requests
 import sys
-import urllib2
+import urllib.request
 
 import met2verif.fcstinput
 import met2verif.locinput
@@ -159,10 +159,10 @@ def run(parser, argv=sys.argv[1:]):
                 url += "&s=%s" % id
 
         if args.debug:
-            print url
+            print(url)
 
         # Download url
-        response = urllib2.urlopen(url)
+        response = urllib.request.urlopen(url)
         html = response.read()
         file = open(args.filename, 'w')
         file.write(html)

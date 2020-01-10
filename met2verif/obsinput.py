@@ -49,8 +49,8 @@ class Text(ObsInput):
         Ihour = header.index("hour")
         Ivar = header.index(variable)
         if None in [Iid, Idate, Ihour, Ivar]:
-            print "The header in %s is invalid:" % ifilename
-            print header
+            print("The header in %s is invalid:" % ifilename)
+            print(header)
             ifile.close()
             return {}
         times = list()
@@ -66,8 +66,8 @@ class Text(ObsInput):
                     date = int(data[Idate])
                     time = int(data[Ihour])
                 except Exception:
-                    print "Could not read the following:"
-                    print data
+                    print("Could not read the following:")
+                    print(data)
                     continue
                 raw = data[Ivar]
                 if(raw == '.'):
@@ -106,8 +106,8 @@ class Kdvh(ObsInput):
         Imin = header.index("MIN") if "MIN" in header else None
         Ivar = header.index(variable)
         if None in [Iid, Iyear, Imonth, Iday, Itime, Ivar]:
-            print "The header in %s is invalid:" % ifilename
-            print header
+            print("The header in %s is invalid:" % ifilename)
+            print(header)
             ifile.close()
             return {}
         times = list()
@@ -124,8 +124,8 @@ class Kdvh(ObsInput):
                     date = int(data[Iyear])*10000 + int(data[Imonth])*100 + int(data[Iday])
                     time = int(data[Itime])
                 except Exception:
-                    print "Could not read the following:"
-                    print data
+                    print("Could not read the following:")
+                    print(data)
                     continue
                 min = 0
                 if Imin is not None:
@@ -165,8 +165,8 @@ class Titan(ObsInput):
         Ielev = header.index("elev")
         Ivar = header.index("value")
         if None in [Ilat, Ilon, Ielev, Ivar]:
-            print "The header in %s is invalid:" % ifilename
-            print header
+            print("The header in %s is invalid:" % ifilename)
+            print(header)
             ifile.close()
             return {}
         times = list()

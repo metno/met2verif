@@ -73,9 +73,9 @@ def run(parser, argv=sys.argv[1:]):
     times_new = np.append(times_orig, times_add)
     if args.debug:
         if len(times_add) == 0:
-            print "No new initialization times added"
+            print("No new initialization times added")
         else:
-            print "Adding new intialization times:\n    " + '\n    '.join([met2verif.util.unixtime_to_str(t) for t in times_add])
+            print("Adding new intialization times:\n    " + '\n '.join([met2verif.util.unixtime_to_str(t) for t in times_add]))
 
     new_ids = [id for id in np.unique(data["ids"]) if id in ids_orig]
     valid_times = np.zeros([len(times_new), len(leadtimes_orig)], int)
@@ -91,7 +91,7 @@ def run(parser, argv=sys.argv[1:]):
         Itimes = np.argsort(times_new)
         if (Itimes != range(len(times_new))).any():
             if args.debug:
-                print "Sorting times to be in ascending order"
+                print("Sorting times to be in ascending order")
             times_new = times_new[Itimes]
             obs = obs[Itimes, :, :]
             file.variables["fcst"][:] = file.variables["fcst"][Itimes, :, :]

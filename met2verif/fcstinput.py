@@ -31,14 +31,14 @@ def get_field(data, ml=0, member=None):
         # Extract the right model level, if multiple levels
         use_ml = 0
         if data.shape[1] > 1:
-            print "Taking model level %d" % ml
+            print("Taking model level %d" % ml)
             use_ml = ml
         data = data[:, use_ml, :, :]
     elif(len(data.shape) == 3):
         data = data[:, :, :]
     elif(len(data.shape) == 5):
         if data.shape[1] > 1:
-            print "Taking the lower level"
+            print("Taking the lower level")
         if member is None:
             met2verif.util.error("Variable is 5D. Need to specify ensemble member using -e")
         data = data[:, 0, member, :, :]
@@ -230,7 +230,7 @@ class Netcdf(FcstInput):
                         for e in range(len(Iens)):
                             values[lt, Ivalid, Iens[e]] = data[lt, II, JJ, e]
                         h += 1
-        print "Getting values %.2f" % (time.time() - time_0)
+        print("Getting values %.2f" % (time.time() - time_0))
 
         file.close()
         return values
@@ -290,7 +290,7 @@ class Netcdf(FcstInput):
                 J = [IIx[int(xxx)] for xxx in np.round(np.interp(xx, x[Ix], range(len(x)), 0, len(x) - 1))]
                 I = [IIy[int(yyy)] for yyy in np.round(np.interp(yy, y[Iy], range(len(y)), 0, len(y) - 1))]
             else:
-                print "Could not find projection. Computing nearest neighbour from lat/lon."
+                print("Could not find projection. Computing nearest neighbour from lat/lon.")
                 # Find lat and lons
                 if "latitude" in file.variables:
                     ilats = file.variables["latitude"][:]

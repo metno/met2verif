@@ -67,7 +67,7 @@ def run(parser, argv=sys.argv[1:]):
         try:
             inputs += [met2verif.fcstinput.get(filename)]
         except Exception as e:
-            print "Could not open file '%s'. %s." % (filename, e)
+            print("Could not open file '%s'. %s." % (filename, e))
             if args.debug:
                 traceback.print_exc()
 
@@ -234,7 +234,7 @@ def run(parser, argv=sys.argv[1:]):
                 file.sync()
             # print "%.1f s" % (time.time() - time_s)
         except Exception as e:
-            print "Could not process: %s" % e
+            print("Could not process: %s" % e)
             if args.debug:
                 traceback.print_exc()
 

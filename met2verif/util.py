@@ -36,8 +36,8 @@ def date_to_datenum(date):
     Returns:
         int: datenum value
     """
-    year = int(date / 10000)
-    month = int(date / 100 % 100)
+    year = int(date // 10000)
+    month = int(date // 100 % 100)
     day = int(date % 100)
     return matplotlib.dates.date2num(datetime.datetime(year, month, day, 0))
 
@@ -103,8 +103,8 @@ def date_to_unixtime(date):
     Returns:
         int: unixtime
     """
-    year = date / 10000
-    month = date / 100 % 100
+    year = date // 10000
+    month = date // 100 % 100
     day = date % 100
     ut = calendar.timegm(datetime.datetime(year, month, day).timetuple())
     return ut
@@ -154,13 +154,13 @@ def experimental():
 
 def error(message):
     """ Write error message to console and abort """
-    print "\033[1;31mError: " + message + "\033[0m"
+    print("\033[1;31mError: " + message + "\033[0m")
     sys.exit(1)
 
 
 def warning(message):
     """ Write a warning message to console """
-    print "\033[1;33mWarning: " + message + "\033[0m"
+    print("\033[1;33mWarning: " + message + "\033[0m")
 
 
 def parse_ints(numbers):
@@ -207,7 +207,7 @@ def parse_numbers(numbers, is_date=False):
                 step = float(colonList[1])
             if step == 0:
                 verif.util.error("Could not parse '%s': Step cannot be 0." % (numbers))
-            stepSign = step / abs(step)
+            stepSign = step // abs(step)
             # arange does not include the end point:
             end = float(colonList[-1]) + stepSign * 0.0001
             if is_date:
@@ -322,8 +322,8 @@ def get_date(date, diff):
     Returns:
         int: A new date in the form YYYYMMDD
     """
-    year = int(date / 10000)
-    month = int(date / 100 % 100)
+    year = int(date // 10000)
+    month = int(date // 100 % 100)
     day = int(date % 100)
     date2 = datetime.datetime(year, month, day, 0) + datetime.timedelta(diff)
     return int(date2.strftime('%Y%m%d'))
@@ -558,8 +558,8 @@ def get_distance_matrix(locations):
 
 def unixtime_to_str(unixtime):
     date = unixtime_to_date(unixtime)
-    hour = unixtime % 86400 / 3600
-    min = unixtime % 3600 / 60
+    hour = unixtime % 86400 // 3600
+    min = unixtime % 3600 // 60
     sec = unixtime % 60
     return "%08d %02d:%02d:%02d" % (date, hour, min, sec)
 
