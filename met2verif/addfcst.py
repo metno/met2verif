@@ -147,7 +147,7 @@ def run(parser, argv=sys.argv[1:]):
 
     for Iinput, input in enumerate(inputs):
         time_s = time.time()
-        print "Processing %s" % input.filename
+        print("Processing %s" % input.filename)
         if args.debug:
             step = max(1, len(inputs) / 100)
             frac = float(Iinput) / len(inputs)
@@ -155,7 +155,7 @@ def run(parser, argv=sys.argv[1:]):
             #                met2verif.util.progress_bar(frac, 80)
         try:
             Itime, Ilt_input, Ilt_output = get_time_indices(input.leadtimes, input.forecast_reference_time, leadtimes_orig, times_new, args.delays, args.fill_time)
-            print(Itime, Ilt_input, Ilt_output)
+            #print(Itime, Ilt_input, Ilt_output)
 
             """
             Determine if we need to write data from this filename. This is only
