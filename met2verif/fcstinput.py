@@ -110,6 +110,10 @@ class Netcdf(FcstInput):
             print("Could not open file '%s'. %s." % (filename, e))
             raise
 
+    @property
+    def valid(self):
+        """ Is this file valid? I.e. can all data be extracted from it"""
+        return self.leadtimes is not None
 
     def extract(self, lats, lons, variable, members=[0], hood=0):
         """
@@ -122,6 +126,9 @@ class Netcdf(FcstInput):
             members (list): Which ensemble members to use? If None, then use all
             hood (int): Neighbourhood radius
         """
+        if not self.valid:
+            met2verif.util.error("Cannot extract data from invalid file")
+
         time_0 = time.time()
         file = netCDF4.Dataset(self.filename, 'r')
         if members is None:
@@ -216,6 +223,7 @@ class Netcdf(FcstInput):
                 h = 0
                 for i in range(-hood, hood+1):
                     for j in range(-hood, hood+1):
+                        # TODO: Check we are not on the edge of the domain
                         Iens = range(len(members) * h, len(members) * (h+1))
                         II = [I[iv] + i for iv in Ivalid]
                         JJ = [J[iv] + j for iv in Ivalid]
@@ -308,13 +316,13 @@ class Netcdf(FcstInput):
         file = netCDF4.Dataset(self.filename, 'r')
         xvar = None
         yvar = None
-        if "x" in file.variables and "y" in file.variables:
+        if "x" in file.dimensions and "y" in file.dimensions:
             xvar = "x"
             yvar = "y"
-        elif "X" in file.variables and "Y" in file.variables:
+        elif "X" in file.dimensions and "Y" in file.dimensions:
             xvar = "X"
             yvar = "Y"
-        elif "Xc" in file.variables and "Yc" in file.variables:
+        elif "Xc" in file.dimensions and "Yc" in file.dimensions:
             xvar = "Xc"
             yvar = "Yc"
         elif "lat" in file.dimensions and "lon" in file.dimensions:
