@@ -125,6 +125,8 @@ def run(parser, argv=sys.argv[1:]):
                         ofile.write("\n")
             elif r.status_code == 404:
                  print('STATUS: No data was found for the list of query Ids.')
+            elif r.status_code == 412:
+                 print('STATUS: No valid data was found for the list of query Ids.')
             else:
                  met2verif.util.error('ERROR: Could not get data from frost: %d' % r.status_code)
         ofile.close()
