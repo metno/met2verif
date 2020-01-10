@@ -35,6 +35,7 @@ def add_subparser(parser):
     subparser.add_argument('--debug', help='Display debug information', action="store_true")
     subparser.add_argument('--deacc', help='Deaccumulate values in time', action="store_true")
     subparser.add_argument('-ft', help='Fill in time', dest="fill_time", action="store_true")
+    subparser.add_argument('--sync', type=int, help='How often to Sync?', dest="sync_frequency")
 
     return subparser
 
@@ -74,21 +75,20 @@ def run(parser, argv=sys.argv[1:]):
     Read forecast data and expand the array to allow new times to be created. This
     array can be resorted such that times are in chronological order.
     """
-
     times_file = np.zeros(0)
     for input in inputs:
         for delay in args.delays:
             frt = input.forecast_reference_time + delay * 3600
-            if not np.isnan(frt):
+            if not np.isnan(frt) and frt < 1e10:
                 times_file = np.append(times_file, frt)
     times_all = np.unique(np.append(times_orig, times_file))
     times_add = np.sort(np.setdiff1d(times_all, times_orig))
     times_new = np.append(times_orig, times_add)
     if args.debug:
         if len(times_add) == 0:
-            print "No new initialization times added"
+            print("No new initialization times added")
         else:
-            print "Adding new intialization times:\n    " + '\n    '.join([met2verif.util.unixtime_to_str(t) for t in times_add])
+            print("Adding new intialization times:\n    " + '\n '.join([met2verif.util.unixtime_to_str(t) for t in times_add]))
 
     thresholds_orig = list()
     quantiles_orig = list()
@@ -225,12 +225,13 @@ def run(parser, argv=sys.argv[1:]):
                         met2verif.util.error("Number of members in file (%d) does not equal number in verif file (%d)" % (curr_fcst0.shape[2], num_members))
                     efcst[curr_Itime, curr_Ilt_output, :, :] = curr_fcst0
 
-            file.variables[args.ovariable][:] = fcst
-            if len(thresholds_orig) > 0:
-                file.variables['cdf'][:] = tfcst
-            if len(quantiles_orig) > 0:
-                file.variables['x'][:] = qfcst
-            file.sync()
+            if args.sync_frequency is not None and Iinput % args.sync_frequency == 0:
+                file.variables[args.ovariable][:] = fcst
+                if len(thresholds_orig) > 0:
+                    file.variables['cdf'][:] = tfcst
+                if len(quantiles_orig) > 0:
+                    file.variables['x'][:] = qfcst
+                file.sync()
             # print "%.1f s" % (time.time() - time_s)
         except Exception as e:
             print "Could not process: %s" % e
