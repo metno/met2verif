@@ -24,9 +24,10 @@ def get(filename):
     except:
         sys.stderr = _stderr
         sys.stdout = _stdout
-        file = open(filename, 'r')
+        file = open(filename, 'r', encoding = "ISO-8859-1")
         for i in range(5):
             header = file.readline()
+            print(header)
             if len(header) < 5:
                 continue
             else:
@@ -101,7 +102,7 @@ class Comps(LocInput):
         self.filename = filename
 
     def read(self):
-        locfile = open(self.filename, 'r')
+        locfile = open(self.filename, 'r', encoding = "ISO-8859-1")
         locations = dict()
         for line in locfile:
             if(line[0] is not '#'):

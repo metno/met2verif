@@ -52,7 +52,7 @@ def run(parser, argv=sys.argv[1:]):
                 ids = met2verif.locinput.get(args.locations).read().keys()
                 ids = ['SN' + str(id) for id in ids]
             except Exception as e:
-                file = open(args.locations, 'r')
+                file = open(args.locations, 'r', encoding="utf-8")
                 ids = list()
                 for line in file:
                     ids += ['SN' + word for word in re.split(',| ', line)]
