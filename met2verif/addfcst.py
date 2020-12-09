@@ -35,7 +35,7 @@ def add_subparser(parser):
     subparser.add_argument('--debug', help='Display debug information', action="store_true")
     subparser.add_argument('--deacc', help='Deaccumulate values in time', action="store_true")
     subparser.add_argument('-ft', help='Fill in time', dest="fill_time", action="store_true")
-    subparser.add_argument('--sync', type=int, help='How often to Sync?', dest="sync_frequency")
+    subparser.add_argument('--sync', metavar="FREQ", type=int, help='How often to Sync?', dest="sync_frequency")
 
     return subparser
 
@@ -205,6 +205,7 @@ def run(parser, argv=sys.argv[1:]):
                 curr_Itime = Itime[i]
                 curr_Ilt_output = Ilt_output[i]
                 curr_Ilt_input = Ilt_input[i]
+                print(curr_Itime, curr_Ilt_output, curr_Ilt_input)
                 curr_fcst0 = curr_fcst[curr_Ilt_input, :, :]
                 fcst[curr_Itime, curr_Ilt_output, :] = aggregator(curr_fcst0, axis=2)
                 for i in range(len(thresholds_orig)):

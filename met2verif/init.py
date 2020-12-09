@@ -86,7 +86,7 @@ def run(parser, argv=sys.argv[1:]):
     lats = np.zeros(L, 'float')
     lons = np.zeros(L, 'float')
     elevs = np.zeros(L, 'float')
-    ids = np.sort(locations.keys())
+    ids = np.sort(list(locations.keys()))
     for i in range(0, L):
         lats[i] = locations[ids[i]]["lat"]
         lons[i] = locations[ids[i]]["lon"]
