@@ -300,6 +300,11 @@ class Netcdf(FcstInput):
                     ilons = file.variables["lon"][:]
                 else:
                     met2verif.util.error("Cannot determine latitude and longitude")
+
+                if len(ilats.shape) == 1:
+                    # Global lat/lon data
+                    ilons, ilats = np.meshgrid(ilons, ilats)
+
                 for i in range(Npoints):
                     currlat = lats[i]
                     currlon = lons[i]
